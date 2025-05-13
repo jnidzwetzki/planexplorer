@@ -1,0 +1,122 @@
+.resultBox {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 24px;
+  min-height: 60px;
+}
+
+.resultTitle {
+  font-weight: 600;
+}
+
+.resultContent {
+  margin-top: 8px;
+}
+
+.resultList {
+  /* Remove columns for single column layout */
+  columns: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resultItem {
+  padding: 12px 8px;
+  margin-bottom: 16px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  font-size: 16px;
+  word-break: break-word;
+}
+
+.sql {
+  font-family: monospace;
+  font-size: 15px;
+  white-space: pre-wrap;
+}
+
+.noResult {
+  color: #888;
+  display: block;
+}
+
+.noPreparationResult {
+  color: #888;
+  display: block;
+  margin-bottom: 32px;
+}
+
+.preparation {
+  font-family: monospace;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  margin-bottom: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preparation:empty {
+  display: block;
+  min-height: 32px;
+  margin-bottom: 32px;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.planCount {
+  font-size: 15px;
+  color: #2563eb;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.collapseButton {
+  margin: 0 0 8px 0;
+  padding: 4px 12px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95em;
+  color: #222;
+  transition: background 0.2s;
+}
+.collapseButton:hover {
+  background: #e5e7eb;
+}
+
+.planFingerprintMapBox {
+  margin-top: 32px;
+  background: #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+}
+.planFingerprintMapBox h3 {
+  margin-bottom: 12px;
+}
+.planFingerprintMapList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.planFingerprintMapItem {
+  margin-bottom: 18px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  padding: 10px 12px;
+}
+.planFingerprintMapPlan {
+  font-family: monospace;
+  font-size: 14px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 6px 0 0 0;
+  white-space: pre-wrap;
+}

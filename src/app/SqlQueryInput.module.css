@@ -1,0 +1,43 @@
+.sqlBox {
+  margin-bottom: 24px;
+}
+
+.sqlLabel {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.sqlTextarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1.5px solid #d1d5db;
+  padding: 12px;
+  font-size: 16px;
+  font-family: monospace;
+  resize: vertical;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+
+.sqlHint {
+  color: #555;
+  font-size: 14px;
+}
+
+.sqlPlaceholderBtn {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #222;
+  font-family: monospace;
+  font-size: 14px;
+  padding: 2px 8px;
+  margin: 0 2px;
+  cursor: pointer;
+  transition: background 0.2s, border 0.2s;
+}
+.sqlPlaceholderBtn:hover {
+  background: #e5e7eb;
+  border-color: #a1a1aa;
+}

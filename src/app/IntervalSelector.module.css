@@ -1,0 +1,55 @@
+.intervalRow {
+  width: 100%;
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  margin: 1rem 0;
+  align-items: center;
+}
+
+.inputLabel {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-weight: 500;
+  color: #222;
+}
+
+.inputLabel span {
+  margin-bottom: 4px;
+}
+
+.inputField {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1.5px solid #d1d5db;
+  padding: 12px;
+  font-size: 16px;
+  font-family: monospace;
+  margin-top: 4px;
+  transition: border 0.2s, background 0.2s;
+}
+
+.inputFieldInvalid {
+  border-color: #e57373;
+  background: #fff0f0;
+  border: 2px solid #ef4444;
+  outline: 2px solid #ef4444;
+}
+
+.intervalInfo {
+  margin-top: 12px;
+  flex: 1;
+  color: #555;
+  font-size: 15px;
+}
+
+.intervalInfo span {
+  font-weight: 400;
+}
+
+.intervalInfo strong {
+  font-weight: 600;
+}
