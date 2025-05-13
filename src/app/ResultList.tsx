@@ -80,7 +80,7 @@ const PlanCountInfo: React.FC<{ planCount?: number }> = ({ planCount }) => (
 const PlanFingerprintMapList: React.FC = () => (
   planFingerprintMap.size > 0 ? (
     <div className={styles.planFingerprintMapBox}>
-      <h3><strong>Plan Fingerprint Map</strong></h3>
+      <h3><strong>Plan Fingerprints</strong></h3>
       <ul className={styles.planFingerprintMapList}>
         {[...planFingerprintMap.entries()].map(([fingerprint, id]) => (
           <li key={id} className={styles.planFingerprintMapItem}>

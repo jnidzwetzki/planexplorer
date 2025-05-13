@@ -37,8 +37,21 @@ interface PlanNode {
 
 function walkNode(node: PlanNode, acc: string[]): void {
   if (!node || typeof node !== 'object') return;
-  if (typeof node['Node Type'] === 'string') {
-    acc.push(node['Node Type']);
+  let nodeType = typeof node['Node Type'] === 'string' ? node['Node Type'] : undefined;
+  let alias = typeof node['Alias'] === 'string' ? node['Alias'] : undefined;
+  let relation = typeof node['Relation Name'] === 'string' ? node['Relation Name'] : undefined;
+  if (nodeType) {
+    let label = nodeType;
+    if (alias || relation) {
+      label += '(';
+      if (alias) {
+        label += alias;
+      } else if (relation) {
+        label += relation;
+      }
+      label += ')';
+    }
+    acc.push(label);
   }
   for (const key in node) {
     const value = node[key];
@@ -54,8 +67,6 @@ export function getPlanFingerprint(parsed: unknown): string {
   const acc: string[] = [];
   if (Array.isArray(parsed) && parsed.length > 0 && (parsed[0] as PlanNode).Plan) {
     walkNode((parsed[0] as PlanNode).Plan as PlanNode, acc);
-  } else if (Array.isArray(parsed) && parsed.length > 0 && (parsed[0] as PlanNode)['Plan']) {
-    walkNode((parsed[0] as PlanNode)['Plan'] as PlanNode, acc);
   }
   return acc.join('>');
 }
