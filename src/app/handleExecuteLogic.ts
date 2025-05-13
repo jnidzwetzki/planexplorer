@@ -37,9 +37,9 @@ interface PlanNode {
 
 function walkNode(node: PlanNode, acc: string[]): void {
   if (!node || typeof node !== 'object') return;
-  let nodeType = typeof node['Node Type'] === 'string' ? node['Node Type'] : undefined;
-  let alias = typeof node['Alias'] === 'string' ? node['Alias'] : undefined;
-  let relation = typeof node['Relation Name'] === 'string' ? node['Relation Name'] : undefined;
+  const nodeType = typeof node['Node Type'] === 'string' ? node['Node Type'] : undefined;
+  const alias = typeof node['Alias'] === 'string' ? node['Alias'] : undefined;
+  const relation = typeof node['Relation Name'] === 'string' ? node['Relation Name'] : undefined;
   if (nodeType) {
     let label = nodeType;
     if (alias || relation) {
