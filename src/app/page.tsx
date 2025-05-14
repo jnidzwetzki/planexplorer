@@ -84,7 +84,7 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.heading}>PostgreSQL Query Plan Explorer</h1>
+      <h1 className={styles.heading}>Query Plan Explorer</h1>
       <IntervalSelector
         label="Dimension 0"
         start={start0}
