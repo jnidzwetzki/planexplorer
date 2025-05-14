@@ -26,6 +26,7 @@ export default function Home() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [planCount, setPlanCount] = useState(0);
   const [planFingerprintByCombination, setPlanFingerprintByCombination] = useState<Record<string, number>>({});
+  const [error, setError] = useState<string | undefined>(undefined);
   // Description fields for both dimensions
   const DEFAULT_DESCRIPTION_0 = "Dimension 0";
   const DEFAULT_DESCRIPTION_1 = "Dimension 1";
@@ -36,6 +37,7 @@ export default function Home() {
     setIsExecuting(true);
     setPlanFingerprintByCombination({}); // Clear heatmap before execution
     clearPlanFingerprints(); // Clear fingerprints and counter before execution
+    setError(undefined); // Clear previous error
     const res = await handleExecuteLogic({
       dim1Active,
       start0,
@@ -51,6 +53,7 @@ export default function Home() {
     setResults(res.sqlResults);
     setPlanCount(getPlanCount());
     setPlanFingerprintByCombination(res.planFingerprintByCombination);
+    setError(res.error); // Set error if present
     setIsExecuting(false);
   }
 
@@ -65,6 +68,7 @@ export default function Home() {
     clearPlanFingerprints(); // Clear fingerprints and counter on reset
     setDescription0(DEFAULT_DESCRIPTION_0);
     setDescription1(DEFAULT_DESCRIPTION_1);
+    setError(undefined); // Clear error on reset
   };
   const handleClear = () => {
     setResults([]);
@@ -75,6 +79,7 @@ export default function Home() {
     clearPlanFingerprints(); // Clear fingerprints and counter on clear
     setDescription0(DEFAULT_DESCRIPTION_0);
     setDescription1(DEFAULT_DESCRIPTION_1);
+    setError(undefined); // Clear error on clear
   };
 
   return (
@@ -156,6 +161,11 @@ export default function Home() {
           Clear
         </button>
       </div>
+      {error && (
+        <div style={{ color: '#dc2626', background: '#fff0f0', border: '1.5px solid #ef4444', borderRadius: 8, padding: '12px 18px', marginBottom: 18, fontWeight: 600 }}>
+          Error: {error}
+        </div>
+      )}
       <ResultList
         results={results}
         preparationResults={preparationResults}

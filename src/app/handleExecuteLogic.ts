@@ -19,10 +19,12 @@ export interface HandleExecuteResult {
   preparationResults: string[];
   sqlResults: string[];
   planFingerprintByCombination: Record<string, number>; // New: maps dimension combination to plan ID
+  error?: string; // First error encountered, if any
 }
 
 // Store all unique plan fingerprints and assign them a sequential id
 export const planFingerprintMap: Map<string, number> = new Map();
+export const planJsonById: Map<number, string> = new Map(); // Maps plan ID to full plan JSON string
 export let planIdCounter = 1;
 
 export function getPlanCount() {
@@ -77,6 +79,7 @@ export function resetPlanIdCounter() {
 
 export function clearPlanFingerprints() {
   planFingerprintMap.clear();
+  planJsonById.clear();
   planIdCounter = 1;
 }
 
@@ -94,6 +97,7 @@ export async function handleExecuteLogic({
   const preparationResults: string[] = [];
   const sqlResults: string[] = [];
   const planFingerprintByCombination: Record<string, number> = {}; // New
+  let firstError: string | undefined = undefined; // Track the first error
   // Mapping from dimension combination to plan ID
   const isSelectStatement = (stmt: string) => stmt.trim().toUpperCase().startsWith('SELECT');
   const getStatements = (sql: string) =>
@@ -114,6 +118,8 @@ export async function handleExecuteLogic({
     } else {
       id = planIdCounter++;
       planFingerprintMap.set(fingerprint, id);
+      // Store the full plan JSON string for this new fingerprint
+      planJsonById.set(id, typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2));
     }
     if (combinationKey) {
       planFingerprintByCombination[combinationKey] = id;
@@ -128,6 +134,7 @@ export async function handleExecuteLogic({
         const result = await db.query(stmt);
         preparationResults.push(`${stmt};\nResult: ${JSON.stringify(result, null, 2)}`);
       } catch (err) {
+        if (!firstError) firstError = `${stmt};\nError: ${err}`;
         preparationResults.push(`${stmt};\nError: ${err}`);
       }
     }
@@ -159,6 +166,7 @@ export async function handleExecuteLogic({
         }
         sqlResults.push(`${queryToRun};\nResult: ${JSON.stringify(result, null, 2)}`);
       } catch (err) {
+        if (!firstError) firstError = `${queryToRun};\nError: ${err}`;
         sqlResults.push(`${queryToRun};\nError: ${err}`);
       }
     }
@@ -187,5 +195,5 @@ export async function handleExecuteLogic({
       await processSql(sql, combinationKey);
     }
   }
-  return { preparationResults, sqlResults, planFingerprintByCombination };
+  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError };
 }

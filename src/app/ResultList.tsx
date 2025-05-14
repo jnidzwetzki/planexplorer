@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styles from "./ResultList.module.css";
 import dynamic from "next/dynamic";
-import { planFingerprintMap } from "./handleExecuteLogic";
+import { planFingerprintMap, planJsonById } from "./handleExecuteLogic";
 
 // Dynamically import ReactApexChart to avoid SSR issues
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -91,21 +91,40 @@ const PlanCountInfo: React.FC<{ planCount?: number }> = ({ planCount }) => (
 );
 
 // Plan fingerprint map list
-const PlanFingerprintMapList: React.FC = () => (
-  planFingerprintMap.size > 0 ? (
+const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> }> = ({ planUsageCount }) => {
+  // Track open/closed state for each plan by ID
+  const [openPlans, setOpenPlans] = useState<Record<number, boolean>>({});
+  const togglePlan = (id: number) => {
+    setOpenPlans(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+  return planFingerprintMap.size > 0 ? (
     <div className={styles.planFingerprintMapBox}>
       <h3><strong>Plan Fingerprints</strong></h3>
       <ul className={styles.planFingerprintMapList}>
         {[...planFingerprintMap.entries()].map(([fingerprint, id]) => (
           <li key={id} className={styles.planFingerprintMapItem}>
-            <strong>Plan {id}:</strong>
+            <div style={{display: 'flex', alignItems: 'center', cursor: 'pointer'}} onClick={() => togglePlan(id)}>
+              <span style={{ display: 'inline-block', transition: 'transform 0.2s', transform: openPlans[id] ? 'rotate(90deg)' : 'rotate(0deg)', marginRight: 6 }}>▶</span>
+              <strong>Plan {id}</strong>
+              <span className={styles.planUsageCount}>
+                (Used {planUsageCount[id] || 0} times)
+              </span>
+            </div>
             <pre className={styles.planFingerprintMapPlan}>{fingerprint}</pre>
+            {planJsonById.has(id) && openPlans[id] && (
+              <>
+                <div style={{marginTop: 8, fontWeight: 500}}>Full Query Plan:</div>
+                <pre className={styles.planFingerprintMapPlan} style={{whiteSpace: 'pre-wrap', maxHeight: 320, overflow: 'auto'}}>
+                  {planJsonById.get(id)}
+                </pre>
+              </>
+            )}
           </li>
         ))}
       </ul>
     </div>
-  ) : null
-);
+  ) : null;
+};
 
 PlanFingerprintMapList.displayName = "PlanFingerprintMapList";
 
@@ -114,11 +133,17 @@ export default function ResultList({ results = [], preparationResults = [], plan
   const [showSql, setShowSql] = useState(false);
   const hasExecuted = results.length > 0 || preparationResults.length > 0;
 
+  // Count how often each plan is used
+  const planUsageCount: Record<number, number> = {};
+  Object.values(planFingerprintByCombination).forEach(id => {
+    planUsageCount[id] = (planUsageCount[id] || 0) + 1;
+  });
+
   return (
     <div className={styles.resultBox}>
       <Heatmap planFingerprintByCombination={planFingerprintByCombination} dim0Name={dim0Name} dim1Name={dim1Name} />
       <PlanCountInfo planCount={planCount} />
-      <PlanFingerprintMapList />
+      <PlanFingerprintMapList planUsageCount={planUsageCount} />
       {/* Show collapsibles only if something was executed, otherwise show info text */}
       {hasExecuted ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginTop: 24 }}>
