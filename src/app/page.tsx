@@ -94,7 +94,6 @@ export default function Home() {
         setStep={setStep0}
         description={description0}
         setDescription={setDescription0}
-        defaultDescription={DEFAULT_DESCRIPTION_0}
       />
       {dim1Active ? (
         <div>
@@ -112,7 +111,6 @@ export default function Home() {
             setStep={setStep1}
             description={description1}
             setDescription={setDescription1}
-            defaultDescription={DEFAULT_DESCRIPTION_1}
           />
           <button onClick={() => setDim1Active(false)} className={styles.buttonRemove}>
             – Remove Dimension 1
