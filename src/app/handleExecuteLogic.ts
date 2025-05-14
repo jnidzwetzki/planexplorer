@@ -165,21 +165,25 @@ export async function handleExecuteLogic({
   };
 
   if (dim1Active) {
-    for (let i = start0; i <= end0; i += step0) {
-      for (let j = start1; j <= end1; j += step1) {
+    for (let i = start0; i <= end0 + 1e-8; i += step0) {
+      // Fix floating point precision issues (0.2, 0.4, 0.6000000000000001)
+      const iFixed = Number(i.toFixed(8));
+      for (let j = start1; j <= end1 + 1e-8; j += step1) {
+        const jFixed = Number(j.toFixed(8));
         const sql = sqlQuery
-          .replaceAll('%%DIMENSION0%%', i.toString())
-          .replaceAll('%%DIMENSION1%%', j.toString());
-        const combinationKey = `${i},${j}`;
+          .replaceAll('%%DIMENSION0%%', iFixed.toString())
+          .replaceAll('%%DIMENSION1%%', jFixed.toString());
+        const combinationKey = `${iFixed},${jFixed}`;
         await processSql(sql, combinationKey);
       }
     }
   } else {
-    for (let i = start0; i <= end0; i += step0) {
+    for (let i = start0; i <= end0 + 1e-8; i += step0) {
+      const iFixed = Number(i.toFixed(8));
       const sql = sqlQuery
-        .replaceAll('%%DIMENSION0%%', i.toString())
+        .replaceAll('%%DIMENSION0%%', iFixed.toString())
         .replaceAll('%%DIMENSION1%%', '');
-      const combinationKey = `${i},0`;
+      const combinationKey = `${iFixed},0`;
       await processSql(sql, combinationKey);
     }
   }

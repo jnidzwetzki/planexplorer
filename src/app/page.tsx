@@ -26,6 +26,11 @@ export default function Home() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [planCount, setPlanCount] = useState(0);
   const [planFingerprintByCombination, setPlanFingerprintByCombination] = useState<Record<string, number>>({});
+  // Description fields for both dimensions
+  const DEFAULT_DESCRIPTION_0 = "Dimension 0";
+  const DEFAULT_DESCRIPTION_1 = "Dimension 1";
+  const [description0, setDescription0] = useState(DEFAULT_DESCRIPTION_0);
+  const [description1, setDescription1] = useState(DEFAULT_DESCRIPTION_1);
 
   async function handleExecute() {
     setIsExecuting(true);
@@ -49,6 +54,29 @@ export default function Home() {
     setIsExecuting(false);
   }
 
+  // Reset/Clear handlers: set descriptions back to default
+  const handleReset = () => {
+    setResults([]);
+    setPreparationResults([]);
+    setPreparationValue(DEFAULT_PREPARATION_STEPS);
+    setSqlQuery(DEFAULT_SQL_QUERY);
+    setDim1Active(false); // Hide Dimension 1 interval on reset
+    setPlanFingerprintByCombination({}); // Clear heatmap
+    clearPlanFingerprints(); // Clear fingerprints and counter on reset
+    setDescription0(DEFAULT_DESCRIPTION_0);
+    setDescription1(DEFAULT_DESCRIPTION_1);
+  };
+  const handleClear = () => {
+    setResults([]);
+    setPreparationResults([]);
+    setPreparationValue("");
+    setSqlQuery("");
+    setPlanFingerprintByCombination({}); // Clear heatmap
+    clearPlanFingerprints(); // Clear fingerprints and counter on clear
+    setDescription0(DEFAULT_DESCRIPTION_0);
+    setDescription1(DEFAULT_DESCRIPTION_1);
+  };
+
   return (
     <div className={styles.container}>
       <h1 className={styles.heading}>PostgreSQL Query Plan Explorer</h1>
@@ -64,6 +92,9 @@ export default function Home() {
         setEndValid={setEnd0Valid}
         step={step0}
         setStep={setStep0}
+        description={description0}
+        setDescription={setDescription0}
+        defaultDescription={DEFAULT_DESCRIPTION_0}
       />
       {dim1Active ? (
         <div>
@@ -79,6 +110,9 @@ export default function Home() {
             setEndValid={setEnd1Valid}
             step={step1}
             setStep={setStep1}
+            description={description1}
+            setDescription={setDescription1}
+            defaultDescription={DEFAULT_DESCRIPTION_1}
           />
           <button onClick={() => setDim1Active(false)} className={styles.buttonRemove}>
             – Remove Dimension 1
@@ -112,34 +146,26 @@ export default function Home() {
           )}
         </button>
         <button
-          onClick={() => {
-            setResults([]);
-            setPreparationResults([]);
-            setPreparationValue(DEFAULT_PREPARATION_STEPS);
-            setSqlQuery(DEFAULT_SQL_QUERY);
-            setDim1Active(false); // Hide Dimension 1 interval on reset
-            setPlanFingerprintByCombination({}); // Clear heatmap
-            clearPlanFingerprints(); // Clear fingerprints and counter on reset
-          }}
+          onClick={handleReset}
           className={styles.buttonReset}
         >
           Reset
         </button>
         <button
-          onClick={() => {
-            setResults([]);
-            setPreparationResults([]);
-            setPreparationValue("");
-            setSqlQuery("");
-            setPlanFingerprintByCombination({}); // Clear heatmap
-            clearPlanFingerprints(); // Clear fingerprints and counter on clear
-          }}
+          onClick={handleClear}
           className={styles.buttonClear}
         >
           Clear
         </button>
       </div>
-      <ResultList results={results} preparationResults={preparationResults} planCount={planCount} planFingerprintByCombination={planFingerprintByCombination} />
+      <ResultList
+        results={results}
+        preparationResults={preparationResults}
+        planCount={planCount}
+        planFingerprintByCombination={planFingerprintByCombination}
+        dim0Name={description0}
+        dim1Name={description1}
+      />
     </div>
   );
 }

@@ -10,11 +10,13 @@ interface ResultListProps {
   results?: string[];
   preparationResults?: string[];
   planCount?: number;
-  planFingerprintByCombination?: Record<string, number>;
+  planFingerprintByCombination: Record<string, number>;
+  dim0Name: string;
+  dim1Name: string;
 }
 
 // Helper to transform planFingerprintByCombination into ApexCharts heatmap data
-function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<string, number>) {
+function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<string, number>, dim0Name: string, dim1Name: string) {
   // Parse keys like "i,j" into 2D array
   const keys = Object.keys(planFingerprintByCombination);
   const xSet = new Set<number>();
@@ -35,12 +37,13 @@ function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<stri
     data[i][j] = planFingerprintByCombination[k];
   });
   // Prepare ApexCharts heatmap series
-  const series = data.map((row, i) => ({ name: `Y=${yArr[i]}`, data: row }));
+  const series = data.map((row, i) => ({ name: `${yArr[i]}`, data: row }));
   const options = {
     chart: { type: "heatmap" as const },
     dataLabels: { enabled: false },
-    xaxis: { categories: xArr.map(x => x.toString()), title: { text: "Dimension 0" } },
-    yaxis: { title: { text: "Dimension 1" } },
+    xaxis: { categories: xArr.map(x => x.toString()), title: { text: dim0Name } },
+    yaxis: yArr.length > 1 ? { title: { text: dim1Name } } : { show: false },
+    grid: { padding: { left: 5, right: 5, bottom: 5, top: 5 } },
     colors: ["#008FFB"],
     title: { text: "Plan Fingerprint Heatmap" },
   };
@@ -57,12 +60,23 @@ const Arrow: React.FC<{ open: boolean }> = React.memo(({ open }) => (
 Arrow.displayName = "Arrow";
 
 // Heatmap visualization
-const Heatmap: React.FC<{ planFingerprintByCombination?: Record<string, number> }> = ({ planFingerprintByCombination }) => {
+const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, dim0Name: string, dim1Name: string }> = ({ planFingerprintByCombination, dim0Name, dim1Name }) => {
   if (!planFingerprintByCombination || Object.keys(planFingerprintByCombination).length === 0) return null;
-  const { series, options } = getHeatmapFromPlanFingerprint(planFingerprintByCombination);
+  const keys = Object.keys(planFingerprintByCombination);
+  const ySet = new Set<number>();
+  keys.forEach(k => {
+    const [, y] = k.split(",").map(Number);
+    ySet.add(y);
+  });
+  const yArr = Array.from(ySet);
+  // Minimum height 350, add 30px per y-entry above 10
+  const baseHeight = 350;
+  const extraRows = Math.max(0, yArr.length - 10);
+  const height = baseHeight + extraRows * 15;
+  const { series, options } = getHeatmapFromPlanFingerprint(planFingerprintByCombination, dim0Name, dim1Name);
   return (
     <div style={{ margin: "24px 0" }}>
-      <ReactApexChart options={options} series={series} type="heatmap" height={350} />
+      <ReactApexChart options={options} series={series} type="heatmap" height={height} />
     </div>
   );
 };
@@ -95,14 +109,14 @@ const PlanFingerprintMapList: React.FC = () => (
 
 PlanFingerprintMapList.displayName = "PlanFingerprintMapList";
 
-export default function ResultList({ results = [], preparationResults = [], planCount, planFingerprintByCombination }: ResultListProps) {
+export default function ResultList({ results = [], preparationResults = [], planCount, planFingerprintByCombination, dim0Name, dim1Name }: ResultListProps) {
   const [showPreparation, setShowPreparation] = useState(false);
   const [showSql, setShowSql] = useState(false);
   const hasExecuted = results.length > 0 || preparationResults.length > 0;
 
   return (
     <div className={styles.resultBox}>
-      <Heatmap planFingerprintByCombination={planFingerprintByCombination} />
+      <Heatmap planFingerprintByCombination={planFingerprintByCombination} dim0Name={dim0Name} dim1Name={dim1Name} />
       <PlanCountInfo planCount={planCount} />
       <PlanFingerprintMapList />
       {/* Show collapsibles only if something was executed, otherwise show info text */}

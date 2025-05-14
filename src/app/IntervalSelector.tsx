@@ -13,13 +13,16 @@ interface IntervalSelectorProps {
   setEndValid: (v: boolean) => void;
   step: number;
   setStep: (v: number) => void;
+  description: string;
+  setDescription: (v: string) => void;
 }
 
-export default function IntervalSelector({ label, start, end, setStart, setEnd, startValid, setStartValid, endValid, setEndValid, step, setStep }: IntervalSelectorProps) {
+export default function IntervalSelector({ label, start, end, setStart, setEnd, startValid, setStartValid, endValid, setEndValid, step, setStep, description, setDescription }: IntervalSelectorProps) {
   const [startInput, setStartInput] = React.useState(start.toString());
   const [endInput, setEndInput] = React.useState(end.toString());
   const [stepInput, setStepInput] = React.useState(step.toString());
   const [stepValid, setStepValid] = React.useState(true);
+  const [descriptionInput, setDescriptionInput] = React.useState(description);
 
   React.useEffect(() => {
     setStartInput(start.toString());
@@ -30,6 +33,9 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
   React.useEffect(() => {
     setStepInput(step.toString());
   }, [step]);
+  React.useEffect(() => {
+    setDescriptionInput(description);
+  }, [description]);
 
   const isValidNumber = (val: string) => {
     if (val === "" || val === "-") return false;
@@ -79,6 +85,12 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
     if (valid) setStep(Number(val));
   };
 
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setDescriptionInput(val);
+    setDescription(val);
+  };
+
   return (
     <div className={styles.intervalRow}>
       <label className={styles.inputLabel}>
@@ -110,6 +122,15 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
           onChange={handleStepChange}
           className={stepValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
           min={1}
+        />
+      </label>
+      <label className={styles.inputLabel} style={{ marginLeft: 8 }}>
+        <span>Description:</span>
+        <input
+          type="text"
+          value={descriptionInput}
+          onChange={handleDescriptionChange}
+          className={styles.inputField}
         />
       </label>
     </div>
