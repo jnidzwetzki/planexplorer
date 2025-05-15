@@ -20,6 +20,9 @@ export interface HandleExecuteResult {
   sqlResults: string[];
   planFingerprintByCombination: Record<string, number>; // New: maps dimension combination to plan ID
   error?: string; // First error encountered, if any
+  sampled?: boolean; // Indicates if results are sampled
+  sampleCount?: number; // Number of samples in sqlResults
+  totalExecutions?: number; // Total number of executions
 }
 
 // Store all unique plan fingerprints and assign them a sequential id
@@ -83,6 +86,31 @@ export function clearPlanFingerprints() {
   planIdCounter = 1;
 }
 
+function getOrCreatePlanId(fingerprint: string, parsed: unknown): number {
+  let id: number;
+  if (planFingerprintMap.has(fingerprint)) {
+    id = planFingerprintMap.get(fingerprint)!;
+  } else {
+    id = planIdCounter++;
+    planFingerprintMap.set(fingerprint, id);
+    // Store the full plan JSON string for this new fingerprint
+    planJsonById.set(id, typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2));
+  }
+  return id;
+}
+
+function assignPlanIdToCombination(combinationKey: string, id: number, planFingerprintByCombination: Record<string, number>) {
+  if (combinationKey) {
+    planFingerprintByCombination[combinationKey] = id;
+  }
+}
+
+function handleExplainResult(parsed: unknown, combinationKey: string, planFingerprintByCombination: Record<string, number>) {
+  const fingerprint = getPlanFingerprint(parsed);
+  const id = getOrCreatePlanId(fingerprint, parsed);
+  assignPlanIdToCombination(combinationKey, id, planFingerprintByCombination);
+}
+
 export async function handleExecuteLogic({
   dim1Active,
   start0,
@@ -95,6 +123,7 @@ export async function handleExecuteLogic({
   preparation,
 }: HandleExecuteParams): Promise<HandleExecuteResult> {
   const preparationResults: string[] = [];
+  // Only store up to 100 samples in sqlResults if more than 100 executions
   const sqlResults: string[] = [];
   const planFingerprintByCombination: Record<string, number> = {}; // New
   let firstError: string | undefined = undefined; // Track the first error
@@ -109,24 +138,6 @@ export async function handleExecuteLogic({
   // Instantiate a new PGlite instance before processing queries
   const db = new PGlite();
 
-  // Function to process parsed EXPLAIN (FORMAT JSON) result
-  function handleExplainResult(parsed: unknown, combinationKey: string) {
-    const fingerprint = getPlanFingerprint(parsed);
-    let id: number;
-    if (planFingerprintMap.has(fingerprint)) {
-      id = planFingerprintMap.get(fingerprint)!;
-    } else {
-      id = planIdCounter++;
-      planFingerprintMap.set(fingerprint, id);
-      // Store the full plan JSON string for this new fingerprint
-      planJsonById.set(id, typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2));
-    }
-    if (combinationKey) {
-      planFingerprintByCombination[combinationKey] = id;
-    }
-    window.console.log('Plan fingerprint:', fingerprint, 'ID:', id);
-  }
-
   // Execute preparation steps if provided
   if (preparation) {
     for (const stmt of getStatements(preparation)) {
@@ -140,6 +151,38 @@ export async function handleExecuteLogic({
     }
   }
 
+  // --- Sampling logic for sqlResults ---
+  // Calculate total number of executions
+  let totalExecutions = 0;
+  if (dim1Active) {
+    for (let i = start0; i <= end0 + 1e-8; i += step0) {
+      for (let j = start1; j <= end1 + 1e-8; j += step1) {
+        totalExecutions++;
+      }
+    }
+  } else {
+    for (let i = start0; i <= end0 + 1e-8; i += step0) {
+      totalExecutions++;
+    }
+  }
+  // If more than 100, sample indices to keep
+  let sampleIndices: Set<number> | undefined = undefined;
+  let sampled = false;
+  let sampleCount = 0;
+  if (totalExecutions > 100) {
+    sampleIndices = new Set<number>();
+    for (let k = 0; k < 100; k++) {
+      // Evenly distributed indices
+      sampleIndices.add(Math.floor(k * totalExecutions / 100));
+    }
+    sampled = true;
+    sampleCount = 100;
+  } else {
+    sampleCount = totalExecutions;
+  }
+  let executionIndex = 0;
+
+  // --- Modified processSql to support sampling ---
   const processSql = async (sql: string, combinationKey: string) => {
     for (const stmt of getStatements(sql)) {
       let queryToRun = stmt;
@@ -157,19 +200,25 @@ export async function handleExecuteLogic({
             const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
             const explainJsonStr = explainRow && Object.values(explainRow)[0] as string;
             if (explainJsonStr) {
-              handleExplainResult(explainJsonStr, combinationKey);
+              handleExplainResult(explainJsonStr, combinationKey, planFingerprintByCombination);
             }
           } catch (parseErr) {
             window.console.log('Explain JSON parse error:', parseErr);
             // Ignore parse errors for now
           }
         }
-        sqlResults.push(`${queryToRun};\nResult: ${JSON.stringify(result, null, 2)}`);
+        // Only add to sqlResults if not sampling, or if this execution is a sample
+        if (!sampleIndices || sampleIndices.has(executionIndex)) {
+          sqlResults.push(`${queryToRun};\nResult: ${JSON.stringify(result, null, 2)}`);
+        }
       } catch (err) {
         if (!firstError) firstError = `${queryToRun};\nError: ${err}`;
-        sqlResults.push(`${queryToRun};\nError: ${err}`);
+        if (!sampleIndices || sampleIndices.has(executionIndex)) {
+          sqlResults.push(`${queryToRun};\nError: ${err}`);
+        }
       }
     }
+    executionIndex++;
   };
 
   if (dim1Active) {
@@ -195,5 +244,5 @@ export async function handleExecuteLogic({
       await processSql(sql, combinationKey);
     }
   }
-  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError };
+  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError, sampled, sampleCount, totalExecutions };
 }

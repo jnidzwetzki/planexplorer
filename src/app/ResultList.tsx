@@ -13,6 +13,9 @@ interface ResultListProps {
   planFingerprintByCombination: Record<string, number>;
   dim0Name: string;
   dim1Name: string;
+  sampled?: boolean;
+  sampleCount?: number;
+  totalExecutions?: number;
 }
 
 // Helper to transform planFingerprintByCombination into ApexCharts heatmap data
@@ -60,26 +63,37 @@ const Arrow: React.FC<{ open: boolean }> = React.memo(({ open }) => (
 Arrow.displayName = "Arrow";
 
 // Heatmap visualization
-const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, dim0Name: string, dim1Name: string }> = ({ planFingerprintByCombination, dim0Name, dim1Name }) => {
-  if (!planFingerprintByCombination || Object.keys(planFingerprintByCombination).length === 0) return null;
-  const keys = Object.keys(planFingerprintByCombination);
-  const ySet = new Set<number>();
-  keys.forEach(k => {
-    const [, y] = k.split(",").map(Number);
-    ySet.add(y);
-  });
-  const yArr = Array.from(ySet);
-  // Minimum height 350, add 30px per y-entry above 10
-  const baseHeight = 350;
-  const extraRows = Math.max(0, yArr.length - 10);
-  const height = baseHeight + extraRows * 15;
-  const { series, options } = getHeatmapFromPlanFingerprint(planFingerprintByCombination, dim0Name, dim1Name);
-  return (
-    <div style={{ margin: "24px 0" }}>
-      <ReactApexChart options={options} series={series} type="heatmap" height={height} />
-    </div>
-  );
-};
+const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, dim0Name: string, dim1Name: string }> = React.memo(
+  ({ planFingerprintByCombination, dim0Name, dim1Name }) => {
+    if (!planFingerprintByCombination || Object.keys(planFingerprintByCombination).length === 0) return null;
+    const keys = Object.keys(planFingerprintByCombination);
+    const ySet = new Set<number>();
+    keys.forEach(k => {
+      const [, y] = k.split(",").map(Number);
+      ySet.add(y);
+    });
+    const yArr = Array.from(ySet);
+    // Minimum height 350, add 30px per y-entry above 10
+    const baseHeight = 350;
+    const extraRows = Math.max(0, yArr.length - 10);
+    const height = baseHeight + extraRows * 15;
+    const { series, options } = getHeatmapFromPlanFingerprint(planFingerprintByCombination, dim0Name, dim1Name);
+    return (
+      <div style={{ margin: "24px 0" }}>
+        <ReactApexChart options={options} series={series} type="heatmap" height={height} />
+      </div>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Only re-render if the relevant props actually changed
+    return (
+      prevProps.dim0Name === nextProps.dim0Name &&
+      prevProps.dim1Name === nextProps.dim1Name &&
+      Object.keys(prevProps.planFingerprintByCombination).length === Object.keys(nextProps.planFingerprintByCombination).length &&
+      Object.entries(prevProps.planFingerprintByCombination).every(([k, v]) => nextProps.planFingerprintByCombination[k] === v)
+    );
+  }
+);
 
 Heatmap.displayName = "Heatmap";
 
@@ -128,7 +142,7 @@ const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> 
 
 PlanFingerprintMapList.displayName = "PlanFingerprintMapList";
 
-export default function ResultList({ results = [], preparationResults = [], planCount, planFingerprintByCombination, dim0Name, dim1Name }: ResultListProps) {
+export default function ResultList({ results = [], preparationResults = [], planCount, planFingerprintByCombination, dim0Name, dim1Name, sampled, sampleCount, totalExecutions }: ResultListProps) {
   const [showPreparation, setShowPreparation] = useState(false);
   const [showSql, setShowSql] = useState(false);
   const hasExecuted = results.length > 0 || preparationResults.length > 0;
@@ -169,6 +183,12 @@ export default function ResultList({ results = [], preparationResults = [], plan
           <div style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', marginTop: 8 }} onClick={() => setShowSql(v => !v)}>
             <Arrow open={showSql} />
             <strong className={styles.resultTitle}>Detailed SQL Queries</strong>
+            {/* Show sample info if results are sampled */}
+            {sampled && (
+              <span className={styles.planUsageCount}>
+                (Sampled {sampleCount} of {totalExecutions})
+              </span>
+            )}
           </div>
           {showSql && (
             <div className={styles.resultContent}>

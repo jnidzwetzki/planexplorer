@@ -32,6 +32,9 @@ export default function Home() {
   const DEFAULT_DESCRIPTION_1 = "Dimension 1";
   const [description0, setDescription0] = useState(DEFAULT_DESCRIPTION_0);
   const [description1, setDescription1] = useState(DEFAULT_DESCRIPTION_1);
+  const [sampled, setSampled] = useState<boolean>(false);
+  const [sampleCount, setSampleCount] = useState<number | undefined>(undefined);
+  const [totalExecutions, setTotalExecutions] = useState<number | undefined>(undefined);
 
   async function handleExecute() {
     setIsExecuting(true);
@@ -54,6 +57,9 @@ export default function Home() {
     setPlanCount(getPlanCount());
     setPlanFingerprintByCombination(res.planFingerprintByCombination);
     setError(res.error); // Set error if present
+    setSampled(res.sampled ?? false);
+    setSampleCount(res.sampleCount);
+    setTotalExecutions(res.totalExecutions);
     setIsExecuting(false);
   }
 
@@ -173,6 +179,9 @@ export default function Home() {
         planFingerprintByCombination={planFingerprintByCombination}
         dim0Name={description0}
         dim1Name={description1}
+        sampled={sampled}
+        sampleCount={sampleCount}
+        totalExecutions={totalExecutions}
       />
     </div>
   );
