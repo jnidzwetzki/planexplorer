@@ -19,10 +19,10 @@ export default function Home() {
   const [end0Valid, setEnd0Valid] = useState(true);
   const [start1Valid, setStart1Valid] = useState(true);
   const [end1Valid, setEnd1Valid] = useState(true);
-  const [sqlQuery, setSqlQuery] = useState(DEFAULT_SQL_QUERY);
+  const [sqlQuery, setSqlQuery] = useState(""); // Start with empty SQL query
   const [step0, setStep0] = useState(2500);
   const [step1, setStep1] = useState(1);
-  const [preparationValue, setPreparationValue] = useState(DEFAULT_PREPARATION_STEPS);
+  const [preparationValue, setPreparationValue] = useState(""); // Start with empty preparation steps
   const [isExecuting, setIsExecuting] = useState(false);
   const [planCount, setPlanCount] = useState(0);
   const [planFingerprintByCombination, setPlanFingerprintByCombination] = useState<Record<string, number>>({});
@@ -63,19 +63,41 @@ export default function Home() {
     setIsExecuting(false);
   }
 
-  // Reset/Clear handlers: set descriptions back to default
-  const handleReset = () => {
-    setResults([]);
-    setPreparationResults([]);
+  // Handler to load demo query 1: first clear, then set demo query values
+  const handleLoadDemoQuery1 = () => {
+    handleClear();
     setPreparationValue(DEFAULT_PREPARATION_STEPS);
     setSqlQuery(DEFAULT_SQL_QUERY);
-    setDim1Active(false); // Hide Dimension 1 interval on reset
-    setPlanFingerprintByCombination({}); // Clear heatmap
-    clearPlanFingerprints(); // Clear fingerprints and counter on reset
-    setDescription0(DEFAULT_DESCRIPTION_0);
+    setDescription0('WHERE key > X');
     setDescription1(DEFAULT_DESCRIPTION_1);
-    setError(undefined); // Clear error on reset
   };
+
+  // Handler to load demo query 2: clear, set demo values, open dimension 1, set range and step, set SQL with SET
+  const handleLoadDemoQuery2 = () => {
+    handleClear();
+    setPreparationValue(DEFAULT_PREPARATION_STEPS);
+    setDim1Active(true);
+    setStart1(0);
+    setEnd1(8);
+    setStep1(0.25);
+    setSqlQuery("SET random_page_cost = %%DIMENSION1%%;\n" + DEFAULT_SQL_QUERY);
+    setDescription0('WHERE key > X');
+    setDescription1('random_page_cost');
+  };
+
+  // Handler to load demo query 3: like demo 2, but with different SQL query
+  const handleLoadDemoQuery3 = () => {
+    handleClear();
+    setPreparationValue(DEFAULT_PREPARATION_STEPS);
+    setDim1Active(true);
+    setStart1(0);
+    setEnd1(8);
+    setStep1(0.25);
+    setSqlQuery("SET random_page_cost = %%DIMENSION1%%;\nSELECT * FROM data d1 LEFT JOIN data d2 ON (d1.key = d2.key) WHERE d1.key > %%DIMENSION0%%;");
+    setDescription0('WHERE key > X');
+    setDescription1('random_page_cost');
+  };
+
   const handleClear = () => {
     setResults([]);
     setPreparationResults([]);
@@ -83,8 +105,15 @@ export default function Home() {
     setSqlQuery("");
     setPlanFingerprintByCombination({}); // Clear heatmap
     clearPlanFingerprints(); // Clear fingerprints and counter on clear
-    setDescription0(DEFAULT_DESCRIPTION_0);
-    setDescription1(DEFAULT_DESCRIPTION_1);
+    setDim1Active(false); // Close Dimension 1 on clear
+    setStart0(0); // Reset Dimension 0 start
+    setEnd0(50000); // Reset Dimension 0 end
+    setStep0(2500); // Reset Dimension 0 step
+    setDescription0(DEFAULT_DESCRIPTION_0); // Reset Dimension 0 description
+    setStart1(0); // Reset Dimension 1 start
+    setEnd1(10); // Reset Dimension 1 end
+    setStep1(1); // Reset Dimension 1 step
+    setDescription1(DEFAULT_DESCRIPTION_1); // Reset Dimension 1 description
     setError(undefined); // Clear error on clear
   };
 
@@ -141,31 +170,50 @@ export default function Home() {
           onPreparationChange={setPreparationValue}
         />
       </div>
-      <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginBottom: 16 }}>
-        <button onClick={handleExecute} className={styles.buttonPrimary}
-          disabled={
-            isExecuting ||
-            !start0Valid || !end0Valid || (dim1Active && (!start1Valid || !end1Valid)) || sqlQuery.trim() === ""
-          }
-        >
-          {isExecuting ? (
-            <span className={styles.spinner} aria-label="Loading" />
-          ) : (
-            "Execute"
-          )}
-        </button>
-        <button
-          onClick={handleReset}
-          className={styles.buttonReset}
-        >
-          Reset
-        </button>
-        <button
-          onClick={handleClear}
-          className={styles.buttonClear}
-        >
-          Clear
-        </button>
+      <div className={styles.buttonRow}>
+        <div className={styles.demoButtonGroup}>
+          <button
+            onClick={handleLoadDemoQuery1}
+            className={styles.buttonDemo}
+            title="Load Demo Query 1"
+          >
+            Query 1
+          </button>
+          <button
+            onClick={handleLoadDemoQuery2}
+            className={styles.buttonDemo}
+            title="Load Demo Query 2"
+          >
+            Query 2
+          </button>
+          <button
+            onClick={handleLoadDemoQuery3}
+            className={styles.buttonDemo}
+            title="Load Demo Query 3"
+          >
+            Query 3
+          </button>
+        </div>
+        <div className={styles.actionButtonGroup}>
+          <button onClick={handleExecute} className={styles.buttonPrimary}
+            disabled={
+              isExecuting ||
+              !start0Valid || !end0Valid || (dim1Active && (!start1Valid || !end1Valid)) || sqlQuery.trim() === ""
+            }
+          >
+            {isExecuting ? (
+              <span className={styles.spinner} aria-label="Loading" />
+            ) : (
+              "Execute"
+            )}
+          </button>
+          <button
+            onClick={handleClear}
+            className={styles.buttonClear}
+          >
+            Clear
+          </button>
+        </div>
       </div>
       {error && (
         <div style={{ color: '#dc2626', background: '#fff0f0', border: '1.5px solid #ef4444', borderRadius: 8, padding: '12px 18px', marginBottom: 18, fontWeight: 600 }}>
