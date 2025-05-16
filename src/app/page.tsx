@@ -20,7 +20,7 @@ export default function Home() {
   const [start1Valid, setStart1Valid] = useState(true);
   const [end1Valid, setEnd1Valid] = useState(true);
   const [sqlQuery, setSqlQuery] = useState(""); // Start with empty SQL query
-  const [step0, setStep0] = useState(2500);
+  const [step0, setStep0] = useState(1000); // Default step for Dimension 0 set to 1000
   const [step1, setStep1] = useState(1);
   const [preparationValue, setPreparationValue] = useState(""); // Start with empty preparation steps
   const [isExecuting, setIsExecuting] = useState(false);
@@ -68,6 +68,7 @@ export default function Home() {
     handleClear();
     setPreparationValue(DEFAULT_PREPARATION_STEPS);
     setSqlQuery(DEFAULT_SQL_QUERY);
+    setStep0(1000); // Set default step for Dimension 0
     setDescription0('WHERE key > X');
     setDescription1(DEFAULT_DESCRIPTION_1);
   };
@@ -80,6 +81,7 @@ export default function Home() {
     setStart1(0);
     setEnd1(8);
     setStep1(0.25);
+    setStep0(1000); // Set default step for Dimension 0
     setSqlQuery("SET random_page_cost = %%DIMENSION1%%;\n" + DEFAULT_SQL_QUERY);
     setDescription0('WHERE key > X');
     setDescription1('random_page_cost');
@@ -93,6 +95,7 @@ export default function Home() {
     setStart1(0);
     setEnd1(8);
     setStep1(0.25);
+    setStep0(1000); // Set default step for Dimension 0
     setSqlQuery("SET random_page_cost = %%DIMENSION1%%;\nSELECT * FROM data d1 LEFT JOIN data d2 ON (d1.key = d2.key) WHERE d1.key > %%DIMENSION0%%;");
     setDescription0('WHERE key > X');
     setDescription1('random_page_cost');
@@ -108,7 +111,7 @@ export default function Home() {
     setDim1Active(false); // Close Dimension 1 on clear
     setStart0(0); // Reset Dimension 0 start
     setEnd0(50000); // Reset Dimension 0 end
-    setStep0(2500); // Reset Dimension 0 step
+    setStep0(1000); // Reset Dimension 0 step
     setDescription0(DEFAULT_DESCRIPTION_0); // Reset Dimension 0 description
     setStart1(0); // Reset Dimension 1 start
     setEnd1(10); // Reset Dimension 1 end
