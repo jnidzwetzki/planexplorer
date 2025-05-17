@@ -1,10 +1,10 @@
 .intervalRow {
   width: 100%;
   display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-  margin: 1rem 0;
-  align-items: center;
+  gap: 10px;
+  margin-bottom: 0;
+  margin: 0.5rem 0 0 0;
+  align-items: flex-start; /* Felder nach oben schieben */
 }
 
 .inputLabel {
@@ -14,21 +14,23 @@
   min-width: 0;
   font-weight: 500;
   color: #222;
+  margin-bottom: 0;
 }
 
 .inputLabel span {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  font-size: 0.97em;
 }
 
 .inputField {
   width: 100%;
   box-sizing: border-box;
-  border-radius: 8px;
-  border: 1.5px solid #d1d5db;
-  padding: 12px;
-  font-size: 16px;
+  border-radius: 6px;
+  border: 1.2px solid #d1d5db;
+  padding: 7px 10px;
+  font-size: 15px;
   font-family: monospace;
-  margin-top: 4px;
+  margin-top: 0;
   transition: border 0.2s, background 0.2s;
 }
 
@@ -52,4 +54,43 @@
 
 .intervalInfo strong {
   font-weight: 600;
+}
+
+.dimensionGroup {
+  border: 2px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px 12px 18px 12px; /* bottom padding erhöht */
+  margin-bottom: 16px;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+}
+
+.dimensionLegend {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2563eb;
+  margin-bottom: 0.2em;
+  padding: 0 6px;
+  line-height: 1.2;
+}
+
+.removeButton {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-left: 8px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.removeButton:hover, .removeButton:focus {
+  background: #ffe4e6;
+  color: #b91c1c;
+  outline: none;
 }

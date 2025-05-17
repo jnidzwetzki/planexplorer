@@ -139,26 +139,22 @@ export default function Home() {
         setDescription={setDescription0}
       />
       {dim1Active ? (
-        <div>
-          <IntervalSelector
-            label="Dimension 1"
-            start={start1}
-            end={end1}
-            setStart={setStart1}
-            setEnd={setEnd1}
-            startValid={start1Valid}
-            setStartValid={setStart1Valid}
-            endValid={end1Valid}
-            setEndValid={setEnd1Valid}
-            step={step1}
-            setStep={setStep1}
-            description={description1}
-            setDescription={setDescription1}
-          />
-          <button onClick={() => setDim1Active(false)} className={styles.buttonRemove}>
-            – Remove Dimension 1
-          </button>
-        </div>
+        <IntervalSelector
+          label="Dimension 1"
+          start={start1}
+          end={end1}
+          setStart={setStart1}
+          setEnd={setEnd1}
+          startValid={start1Valid}
+          setStartValid={setStart1Valid}
+          endValid={end1Valid}
+          setEndValid={setEnd1Valid}
+          step={step1}
+          setStep={setStep1}
+          description={description1}
+          setDescription={setDescription1}
+          onRemove={() => setDim1Active(false)}
+        />
       ) : (
         <button onClick={() => setDim1Active(true)} className={styles.buttonAdd}>
           + Add Dimension 1

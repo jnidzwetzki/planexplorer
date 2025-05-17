@@ -17,7 +17,7 @@ interface IntervalSelectorProps {
   setDescription: (v: string) => void;
 }
 
-export default function IntervalSelector({ label, start, end, setStart, setEnd, startValid, setStartValid, endValid, setEndValid, step, setStep, description, setDescription }: IntervalSelectorProps) {
+export default function IntervalSelector({ label, start, end, setStart, setEnd, startValid, setStartValid, endValid, setEndValid, step, setStep, description, setDescription, onRemove }: IntervalSelectorProps & { onRemove?: () => void }) {
   const [startInput, setStartInput] = React.useState(start.toString());
   const [endInput, setEndInput] = React.useState(end.toString());
   const [stepInput, setStepInput] = React.useState(step.toString());
@@ -92,47 +92,63 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
   };
 
   return (
-    <div className={styles.intervalRow}>
-      <label className={styles.inputLabel}>
-        <span>{label} Start:</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={startInput}
-          onChange={handleStartChange}
-          className={startValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
-        />
-      </label>
-      <label className={styles.inputLabel}>
-        <span>End:</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={endInput}
-          onChange={handleEndChange}
-          className={endValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
-        />
-      </label>
-      <label className={styles.inputLabel}>
-        <span>Step:</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          value={stepInput}
-          onChange={handleStepChange}
-          className={stepValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
-          min={1}
-        />
-      </label>
-      <label className={styles.inputLabel} style={{ marginLeft: 8 }}>
-        <span>Description:</span>
-        <input
-          type="text"
-          value={descriptionInput}
-          onChange={handleDescriptionChange}
-          className={styles.inputField}
-        />
-      </label>
-    </div>
+    <fieldset className={styles.dimensionGroup}>
+      <legend className={styles.dimensionLegend}>
+        {label}
+        {label === "Dimension 1" && onRemove && (
+          <button
+            type="button"
+            className={styles.removeButton}
+            title="Remove Dimension 1"
+            onClick={onRemove}
+            aria-label="Remove Dimension 1"
+          >
+            ×
+          </button>
+        )}
+      </legend>
+      <div className={styles.intervalRow}>
+        <label className={styles.inputLabel}>
+          <span>Start</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={startInput}
+            onChange={handleStartChange}
+            className={startValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
+          />
+        </label>
+        <label className={styles.inputLabel}>
+          <span>End</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={endInput}
+            onChange={handleEndChange}
+            className={endValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
+          />
+        </label>
+        <label className={styles.inputLabel}>
+          <span>Step</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={stepInput}
+            onChange={handleStepChange}
+            className={stepValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
+            min={1}
+          />
+        </label>
+        <label className={styles.inputLabel} style={{ marginLeft: 8 }}>
+          <span>Description</span>
+          <input
+            type="text"
+            value={descriptionInput}
+            onChange={handleDescriptionChange}
+            className={styles.inputField}
+          />
+        </label>
+      </div>
+    </fieldset>
   );
 }
