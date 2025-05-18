@@ -28,6 +28,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <footer style={{ textAlign: 'center', marginTop: 32, marginBottom: 16, fontSize: 15, color: '#888' }}>
+          <a href="https://jnidzwetzki.github.io/imprint/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none' }}>Imprint</a>
+        </footer>
       </body>
     </html>
   );
