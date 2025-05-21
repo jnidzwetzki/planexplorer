@@ -8,6 +8,9 @@ Plan Explorer is a modern web application for visualizing PostgreSQL query plans
 - **Custom SQL Queries**: Input your own SQL queries with placeholders for dynamic parameters.
 - **Plan Fingerprinting**: Automatically groups and colors similar query plans for easy visualization.
 
+![Plan Explorer Screenshot](doc/planexplorer.png)
+
+
 ## Example Use Cases
 - Visualize when PostgreSQL switches from a table scan to an index scan as selectivity or cost parameters change.
 - Explore the impact of `random_page_cost` and other planner settings on query plan selection.
