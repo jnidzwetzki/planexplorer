@@ -134,7 +134,10 @@ function getSampleIndices(totalExecutions: number): { sampleIndices?: Set<number
   }
 }
 
-async function processPreparation(preparation: string, getResult: (stmt: string) => Promise<{ ok: boolean, data: any }>): Promise<{ results: string[], firstError?: string }> {
+async function processPreparation(
+  preparation: string,
+  getResult: (stmt: string) => Promise<{ ok: boolean, data: unknown }>
+): Promise<{ results: string[], firstError?: string }> {
   const results: string[] = [];
   let firstError: string | undefined = undefined;
   for (const stmt of getStatements(preparation)) {
@@ -143,12 +146,12 @@ async function processPreparation(preparation: string, getResult: (stmt: string)
       if (ok) {
         results.push(`${stmt};\nResult: ${JSON.stringify(data, null, 2)}`);
       } else {
-        if (!firstError) firstError = `${stmt};\nError: ${data.error}`;
-        results.push(`${stmt};\nError: ${data.error}`);
+        if (!firstError) firstError = `${stmt};\nError: ${(data as { error?: string }).error}`;
+        results.push(`${stmt};\nError: ${(data as { error?: string }).error}`);
       }
-    } catch (err: any) {
-      if (!firstError) firstError = `${stmt};\nError: ${err}`;
-      results.push(`${stmt};\nError: ${err}`);
+    } catch (err) {
+      if (!firstError) firstError = `${stmt};\nError: ${err instanceof Error ? err.message : String(err)}`;
+      results.push(`${stmt};\nError: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   return { results, firstError };
@@ -180,7 +183,7 @@ async function proxyProcessSql({ sql, combinationKey, sampleIndices, executionIn
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sql: queryToRun }),
       });
-      const data = await resp.json();
+      const data: { rows?: unknown[]; fields?: unknown[]; error?: string } = await resp.json();
       if (resp.ok) {
         if (isExplain) {
           try {
@@ -200,9 +203,9 @@ async function proxyProcessSql({ sql, combinationKey, sampleIndices, executionIn
           sqlResults.push(`${queryToRun};\nError: ${data.error}`);
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       if (!sampleIndices || sampleIndices.has(executionIndex)) {
-        sqlResults.push(`${queryToRun};\nError: ${err}`);
+        sqlResults.push(`${queryToRun};\nError: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }
@@ -245,7 +248,7 @@ async function pgliteProcessSql({ db, sql, combinationKey, sampleIndices, execut
       }
     } catch (err) {
       if (!sampleIndices || sampleIndices.has(executionIndex)) {
-        sqlResults.push(`${queryToRun};\nError: ${err}`);
+        sqlResults.push(`${queryToRun};\nError: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }

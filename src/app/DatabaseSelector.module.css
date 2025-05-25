@@ -88,3 +88,46 @@
   border: none;
   font-family: inherit;
 }
+.buttonTest {
+  margin-top: 0;
+  margin-left: 0;
+  padding: 7px 18px;
+  border-radius: 6px;
+  border: 1.2px solid #2563eb;
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.buttonTest:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.testStatusBox {
+  margin-top: 0;
+  margin-left: 18px;
+  margin-bottom: 0;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-weight: 500;
+  font-size: 15px;
+  display: block;
+  min-width: 180px;
+  max-width: 320px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.testStatusSuccess {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1.5px solid #34d399;
+}
+.testStatusError {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1.5px solid #ef4444;
+}

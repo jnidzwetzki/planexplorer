@@ -26,7 +26,7 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
       const resp = await fetch(`${proxyUrl.replace(/\/$/, '')}/ping`, { signal: controller.signal });
       clearTimeout(timeout);
       if (resp.ok) {
-        const data = await resp.json();
+        const data: { ok: boolean; error?: string } = await resp.json();
         if (data.ok) {
           setTestStatus('success');
           setTestMessage('Connection successful!');
@@ -38,14 +38,17 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
         setTestStatus('error');
         setTestMessage(`HTTP error: ${resp.status}`);
       }
-    } catch (err: any) {
+    } catch (err) {
       clearTimeout(timeout);
-      if (err.name === 'AbortError') {
+      if (err instanceof DOMException && err.name === 'AbortError') {
         setTestStatus('error');
         setTestMessage('Connection timed out (5s)');
+      } else if (err instanceof Error) {
+        setTestStatus('error');
+        setTestMessage(err.message);
       } else {
         setTestStatus('error');
-        setTestMessage(err?.message || String(err));
+        setTestMessage(String(err));
       }
     }
   }
@@ -79,7 +82,7 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
             <div className={styles.buttonTestRow}>
               <button
                 type="button"
-                style={{ marginTop: 0, marginLeft: 0, padding: '7px 18px', borderRadius: 6, border: '1.2px solid #2563eb', background: '#2563eb', color: '#fff', fontWeight: 600, fontSize: 15, cursor: 'pointer', alignSelf: 'flex-start' }}
+                className={styles.buttonTest}
                 onClick={handleTestConnection}
                 disabled={!proxyUrl || testStatus === 'loading'}
               >
@@ -87,25 +90,14 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
               </button>
               {testStatus && (
                 <div
-                  style={{
-                    marginTop: 0,
-                    marginLeft: 18,
-                    marginBottom: 0,
-                    padding: '8px 14px',
-                    borderRadius: 7,
-                    fontWeight: 500,
-                    fontSize: 15,
-                    background: testStatus === 'success' ? '#ecfdf5' : testStatus === 'error' ? '#fef2f2' : 'transparent',
-                    color: testStatus === 'success' ? '#059669' : testStatus === 'error' ? '#dc2626' : '#222',
-                    border: testStatus === 'success' ? '1.5px solid #34d399' : testStatus === 'error' ? '1.5px solid #ef4444' : 'none',
-                    display: 'block',
-                    minWidth: 180,
-                    maxWidth: 320,
-                    boxSizing: 'border-box',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
+                  className={
+                    styles.testStatusBox +
+                    (testStatus === 'success'
+                      ? ' ' + styles.testStatusSuccess
+                      : testStatus === 'error'
+                      ? ' ' + styles.testStatusError
+                      : '')
+                  }
                 >
                   {testMessage}
                 </div>
