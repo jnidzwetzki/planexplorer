@@ -6,8 +6,12 @@ import SqlQueryInput, { DEFAULT_PREPARATION_STEPS, DEFAULT_SQL_QUERY } from "./S
 import ResultList from "./ResultList";
 import styles from './page.module.css';
 import { handleExecuteLogic, getPlanCount, clearPlanFingerprints } from "./handleExecuteLogic";
+import DatabaseSelector, { DatabaseBackend } from "./DatabaseSelector";
 
 export default function Home() {
+  // Always use pglite as default backend, even in dev:full mode
+  const isDevFull = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_DEVFULL === '1';
+  const [backend, setBackend] = useState<DatabaseBackend>("pglite");
   const [dim1Active, setDim1Active] = useState(false);
   const [start0, setStart0] = useState(0);
   const [end0, setEnd0] = useState(50000);
@@ -35,6 +39,7 @@ export default function Home() {
   const [sampled, setSampled] = useState<boolean>(false);
   const [sampleCount, setSampleCount] = useState<number | undefined>(undefined);
   const [totalExecutions, setTotalExecutions] = useState<number | undefined>(undefined);
+  const [proxyUrl, setProxyUrl] = useState<string>("http://localhost:4000");
 
   async function handleExecute() {
     setIsExecuting(true);
@@ -51,6 +56,8 @@ export default function Home() {
       step1,
       sqlQuery,
       preparation: preparationValue,
+      backend,
+      proxyUrl,
     });
     setPreparationResults(res.preparationResults);
     setResults(res.sqlResults);
@@ -123,6 +130,14 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <h1 className={styles.heading}>Query Plan Explorer</h1>
+      {isDevFull && (
+        <DatabaseSelector
+          value={backend}
+          onChange={setBackend}
+          proxyUrl={proxyUrl}
+          onProxyUrlChange={setProxyUrl}
+        />
+      )}
       <IntervalSelector
         label="Dimension 0"
         start={start0}
