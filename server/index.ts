@@ -28,16 +28,11 @@ app.use(express.json());
  * @param {import('express').Response} res
  */
 app.post('/query', async (req: any, res: any) => {
-  const { sql, params, prepare } = req.body;
+  const { sql, params } = req.body;
   if (!sql) {
     return res.status(400).json({ error: 'Missing SQL statement' });
   }
   try {
-    if (prepare) {
-      // Drop table if exists before prepare steps
-      await pool.query('DROP TABLE IF EXISTS data');
-      // ...other prepare steps if any...
-    }
     const result = await pool.query(sql, params || []);
     res.json({ rows: result.rows, fields: result.fields });
   } catch (err) {

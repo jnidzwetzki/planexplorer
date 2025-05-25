@@ -122,13 +122,16 @@ function isSelectStatement(stmt: string): boolean {
   return stmt.trim().toUpperCase().startsWith('SELECT');
 }
 
+const FLOAT_TOLERANCE = 1e-8; // Used to avoid floating point errors in loop conditions
+const SAMPLE_SIZE = 100; // Used for sampling in getSampleIndices
+
 function getSampleIndices(totalExecutions: number): { sampleIndices?: Set<number>, sampled: boolean, sampleCount: number } {
-  if (totalExecutions > 100) {
+  if (totalExecutions > SAMPLE_SIZE) {
     const sampleIndices = new Set<number>();
-    for (let k = 0; k < 100; k++) {
-      sampleIndices.add(Math.floor(k * totalExecutions / 100));
+    for (let k = 0; k < SAMPLE_SIZE; k++) {
+      sampleIndices.add(Math.floor(k * totalExecutions / SAMPLE_SIZE));
     }
-    return { sampleIndices, sampled: true, sampleCount: 100 };
+    return { sampleIndices, sampled: true, sampleCount: SAMPLE_SIZE };
   } else {
     return { sampleIndices: undefined, sampled: false, sampleCount: totalExecutions };
   }
@@ -157,8 +160,70 @@ async function processPreparation(
   return { results, firstError };
 }
 
+// Helper to replace dimension placeholders in SQL
+function replaceDimensions(sql: string, dim0: string, dim1: string): string {
+  // Replaces %%DIMENSION0%% and %%DIMENSION1%% in the SQL string
+  return sql
+    .replaceAll('%%DIMENSION0%%', dim0)
+    .replaceAll('%%DIMENSION1%%', dim1);
+}
+
+// Interface for execution callback arguments
+interface ExecutionCallbackArgs {
+  sql: string;
+  combinationKey: string;
+  iFixed: number;
+  jFixed: number;
+  executionIndex: number;
+}
+
+// Shared helper to iterate over all executions (1D or 2D) and call a callback for each combination
+async function iterateExecutions({
+  dim1Active,
+  start0,
+  end0,
+  step0,
+  start1,
+  end1,
+  step1,
+  sqlQuery,
+  callback,
+}: {
+  dim1Active: boolean;
+  start0: number;
+  end0: number;
+  step0: number;
+  start1: number;
+  end1: number;
+  step1: number;
+  sqlQuery: string;
+  callback: (args: ExecutionCallbackArgs) => Promise<void>;
+}) {
+  let executionIndex = 0;
+  if (dim1Active) {
+    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
+      const iFixed = Number(i.toFixed(8));
+      for (let j = start1; j <= end1 + FLOAT_TOLERANCE; j += step1) {
+        const jFixed = Number(j.toFixed(8));
+        const sql = replaceDimensions(sqlQuery, iFixed.toString(), jFixed.toString());
+        const combinationKey = `${iFixed},${jFixed}`;
+        await callback({ sql, combinationKey, iFixed, jFixed, executionIndex });
+        executionIndex++;
+      }
+    }
+  } else {
+    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
+      const iFixed = Number(i.toFixed(8));
+      const sql = replaceDimensions(sqlQuery, iFixed.toString(), '');
+      const combinationKey = `${iFixed},0`;
+      await callback({ sql, combinationKey, iFixed, jFixed: 0, executionIndex });
+      executionIndex++;
+    }
+  }
+}
+
 // --- Proxy-specific helpers ---
-async function proxyProcessSql({ sql, combinationKey, sampleIndices, executionIndex, planFingerprintByCombination, proxyUrl, handleExplainResult, sqlResults, isSelectStatement, getStatements }: {
+async function proxyProcessSql({ sql, combinationKey, sampleIndices, executionIndex, planFingerprintByCombination, proxyUrl, handleExplainResult, sqlResults }: {
   sql: string,
   combinationKey: string,
   sampleIndices?: Set<number>,
@@ -167,8 +232,6 @@ async function proxyProcessSql({ sql, combinationKey, sampleIndices, executionIn
   proxyUrl: string,
   handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Record<string, number>) => void,
   sqlResults: string[],
-  isSelectStatement: (stmt: string) => boolean,
-  getStatements: (sql: string) => string[],
 }) {
   for (const stmt of getStatements(sql)) {
     let queryToRun = stmt;
@@ -279,50 +342,28 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
   // Execution
   let totalExecutions = 0;
   if (dim1Active) {
-    for (let i = start0; i <= end0 + 1e-8; i += step0) {
-      for (let j = start1; j <= end1 + 1e-8; j += step1) {
+    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
+      for (let j = start1; j <= end1 + FLOAT_TOLERANCE; j += step1) {
         totalExecutions++;
       }
     }
   } else {
-    for (let i = start0; i <= end0 + 1e-8; i += step0) {
+    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
       totalExecutions++;
     }
   }
   const { sampleIndices, sampled, sampleCount } = getSampleIndices(totalExecutions);
-  let executionIndex = 0;
   const sqlResults: string[] = [];
-  if (dim1Active) {
-    for (let i = start0; i <= end0 + 1e-8; i += step0) {
-      const iFixed = Number(i.toFixed(8));
-      for (let j = start1; j <= end1 + 1e-8; j += step1) {
-        const jFixed = Number(j.toFixed(8));
-        const sql = sqlQuery
-          .replaceAll('%%DIMENSION0%%', iFixed.toString())
-          .replaceAll('%%DIMENSION1%%', jFixed.toString());
-        const combinationKey = `${iFixed},${jFixed}`;
-        await proxyProcessSql({
-          sql,
-          combinationKey,
-          sampleIndices,
-          executionIndex,
-          planFingerprintByCombination,
-          proxyUrl,
-          handleExplainResult,
-          sqlResults,
-          isSelectStatement,
-          getStatements,
-        });
-        executionIndex++;
-      }
-    }
-  } else {
-    for (let i = start0; i <= end0 + 1e-8; i += step0) {
-      const iFixed = Number(i.toFixed(8));
-      const sql = sqlQuery
-        .replaceAll('%%DIMENSION0%%', iFixed.toString())
-        .replaceAll('%%DIMENSION1%%', '');
-      const combinationKey = `${iFixed},0`;
+  await iterateExecutions({
+    dim1Active,
+    start0,
+    end0,
+    step0,
+    start1,
+    end1,
+    step1,
+    sqlQuery,
+    async callback({ sql, combinationKey, executionIndex }) {
       await proxyProcessSql({
         sql,
         combinationKey,
@@ -332,12 +373,9 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
         proxyUrl,
         handleExplainResult,
         sqlResults,
-        isSelectStatement,
-        getStatements,
       });
-      executionIndex++;
-    }
-  }
+    },
+  });
   return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError, sampled, sampleCount, totalExecutions };
 }
 
@@ -366,47 +404,27 @@ async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExe
   // Execution
   let totalExecutions = 0;
   if (dim1Active) {
-    for (let i = start0; i <= end0 + 1e-8; i += step0) {
-      for (let j = start1; j <= end1 + 1e-8; j += step1) {
+    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
+      for (let j = start1; j <= end1 + FLOAT_TOLERANCE; j += step1) {
         totalExecutions++;
       }
     }
   } else {
-    for (let i = start0; i <= end0 + 1e-8; i += step0) {
+    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
       totalExecutions++;
     }
   }
   const { sampleIndices, sampled, sampleCount } = getSampleIndices(totalExecutions);
-  let executionIndex = 0;
-  if (dim1Active) {
-    for (let i = start0; i <= end0 + 1e-8; i += step0) {
-      const iFixed = Number(i.toFixed(8));
-      for (let j = start1; j <= end1 + 1e-8; j += step1) {
-        const jFixed = Number(j.toFixed(8));
-        const sql = sqlQuery
-          .replaceAll('%%DIMENSION0%%', iFixed.toString())
-          .replaceAll('%%DIMENSION1%%', jFixed.toString());
-        const combinationKey = `${iFixed},${jFixed}`;
-        await pgliteProcessSql({
-          db,
-          sql,
-          combinationKey,
-          sampleIndices,
-          executionIndex,
-          planFingerprintByCombination,
-          handleExplainResult,
-          sqlResults,
-        });
-        executionIndex++;
-      }
-    }
-  } else {
-    for (let i = start0; i <= end0 + 1e-8; i += step0) {
-      const iFixed = Number(i.toFixed(8));
-      const sql = sqlQuery
-        .replaceAll('%%DIMENSION0%%', iFixed.toString())
-        .replaceAll('%%DIMENSION1%%', '');
-      const combinationKey = `${iFixed},0`;
+  await iterateExecutions({
+    dim1Active,
+    start0,
+    end0,
+    step0,
+    start1,
+    end1,
+    step1,
+    sqlQuery,
+    async callback({ sql, combinationKey, executionIndex }) {
       await pgliteProcessSql({
         db,
         sql,
@@ -417,9 +435,8 @@ async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExe
         handleExplainResult,
         sqlResults,
       });
-      executionIndex++;
-    }
-  }
+    },
+  });
   return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError, sampled, sampleCount, totalExecutions };
 }
 
