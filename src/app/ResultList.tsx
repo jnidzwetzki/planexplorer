@@ -9,7 +9,6 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false })
 interface ResultListProps {
   results?: string[];
   preparationResults?: string[];
-  planCount?: number;
   planFingerprintByCombination: Record<string, number>;
   dim0Name: string;
   dim1Name: string;
@@ -142,13 +141,14 @@ const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> 
 
 PlanFingerprintMapList.displayName = "PlanFingerprintMapList";
 
-export default function ResultList({ results = [], preparationResults = [], planCount, planFingerprintByCombination, dim0Name, dim1Name, sampled, sampleCount, totalExecutions }: ResultListProps) {
+export default function ResultList({ results = [], preparationResults = [], planFingerprintByCombination, dim0Name, dim1Name, sampled, sampleCount, totalExecutions }: ResultListProps) {
   const [showPreparation, setShowPreparation] = useState(false);
   const [showSql, setShowSql] = useState(false);
   const hasExecuted = results.length > 0 || preparationResults.length > 0;
 
   // Count how often each plan is used
   const planUsageCount: Record<number, number> = {};
+  
   Object.values(planFingerprintByCombination).forEach(id => {
     planUsageCount[id] = (planUsageCount[id] || 0) + 1;
   });
