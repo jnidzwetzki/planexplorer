@@ -33,10 +33,6 @@ export const planFingerprintMap: Map<string, number> = new Map();
 export const planJsonById: Map<number, string> = new Map(); // Maps plan ID to full plan JSON string
 export let planIdCounter = 1;
 
-export function getPlanCount() {
-  return planFingerprintMap.size;
-}
-
 // Specify types instead of any for walkNode and getPlanFingerprint
 interface PlanNode {
   [key: string]: unknown;

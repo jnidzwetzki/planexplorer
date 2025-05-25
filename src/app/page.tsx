@@ -5,7 +5,7 @@ import IntervalSelector from "./IntervalSelector";
 import SqlQueryInput, { DEFAULT_PREPARATION_STEPS, DEFAULT_SQL_QUERY } from "./SqlQueryInput";
 import ResultList from "./ResultList";
 import styles from './page.module.css';
-import { handleExecuteLogic, getPlanCount, clearPlanFingerprints } from "./handleExecuteLogic";
+import { handleExecuteLogic, clearPlanFingerprints } from "./handleExecuteLogic";
 import DatabaseSelector, { DatabaseBackend } from "./DatabaseSelector";
 
 export default function Home() {
@@ -28,7 +28,6 @@ export default function Home() {
   const [step1, setStep1] = useState(1);
   const [preparationValue, setPreparationValue] = useState(""); // Start with empty preparation steps
   const [isExecuting, setIsExecuting] = useState(false);
-  const [planCount, setPlanCount] = useState(0);
   const [planFingerprintByCombination, setPlanFingerprintByCombination] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | undefined>(undefined);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
@@ -64,7 +63,6 @@ export default function Home() {
     });
     setPreparationResults(res.preparationResults);
     setResults(res.sqlResults);
-    setPlanCount(getPlanCount());
     setPlanFingerprintByCombination(res.planFingerprintByCombination);
     setError(res.error); // Set error if present
     setSampled(res.sampled ?? false);
@@ -249,7 +247,6 @@ export default function Home() {
       <ResultList
         results={results}
         preparationResults={preparationResults}
-        planCount={planCount}
         planFingerprintByCombination={planFingerprintByCombination}
         dim0Name={description0}
         dim1Name={description1}

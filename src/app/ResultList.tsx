@@ -104,7 +104,7 @@ const PlanCountInfo: React.FC = () => (
 );
 
 // Plan fingerprint map list
-const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> }> = ({ planUsageCount }) => {
+const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number>, hasExecuted: boolean }> = ({ planUsageCount, hasExecuted }) => {
   // Track open/closed state for each plan by ID
   const [openPlans, setOpenPlans] = useState<Record<number, boolean>>({});
   const togglePlan = (id: number) => {
@@ -119,9 +119,12 @@ const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> 
             <div style={{display: 'flex', alignItems: 'center', cursor: 'pointer'}} onClick={() => togglePlan(id)}>
               <span style={{ display: 'inline-block', transition: 'transform 0.2s', transform: openPlans[id] ? 'rotate(90deg)' : 'rotate(0deg)', marginRight: 6 }}>▶</span>
               <strong>Plan {id}</strong>
-              <span className={styles.planUsageCount}>
-                (Used {planUsageCount[id] || 0} times)
-              </span>
+              {/* Only show usage count if hasExecuted is true */}
+              {hasExecuted && (
+                <span className={styles.planUsageCount}>
+                  (Used {planUsageCount[id] || 0} times)
+                </span>
+              )}
             </div>
             <pre className={styles.planFingerprintMapPlan}>{fingerprint}</pre>
             {planJsonById.has(id) && openPlans[id] && (
@@ -148,19 +151,18 @@ export default function ResultList({ results = [], preparationResults = [], plan
 
   // Count how often each plan is used
   const planUsageCount: Record<number, number> = {};
-  
   Object.values(planFingerprintByCombination).forEach(id => {
     planUsageCount[id] = (planUsageCount[id] || 0) + 1;
   });
 
-  // Show info text only if nothing was executed and keine Fingerprints vorhanden
+  // Show info text only if nothing was executed and no fingerprints present
   const showNoResultInfo = !hasExecuted && planFingerprintMap.size === 0;
 
   return (
     <div className={styles.resultBox}>
       <Heatmap planFingerprintByCombination={planFingerprintByCombination} dim0Name={dim0Name} dim1Name={dim1Name} />
       <PlanCountInfo />
-      <PlanFingerprintMapList planUsageCount={planUsageCount} />
+      <PlanFingerprintMapList planUsageCount={planUsageCount} hasExecuted={hasExecuted} />
       {/* Show collapsibles only if something was executed, otherwise show info text */}
       {hasExecuted ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginTop: 24 }}>
