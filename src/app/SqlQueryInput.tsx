@@ -13,6 +13,7 @@ interface SqlQueryInputProps {
 export const DEFAULT_PREPARATION_STEPS = [
   'SET enable_seqscan = on;',
   'SET cpu_index_tuple_cost = 0.0005;',
+  'DROP TABLE IF EXISTS data;',
   'CREATE TABLE data(key integer, value text);',
   'INSERT INTO data (key, value) SELECT i, i::text FROM generate_series(1, 100000) i;',
   'CREATE INDEX ON data(key);',

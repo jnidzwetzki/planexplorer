@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "dev:full": "NEXT_PUBLIC_DEVFULL=1 concurrently \"next dev --turbopack\" \"ts-node server/index.ts\"",
+    "dev:full": "NEXT_PUBLIC_DEVFULL=1 concurrently \"next dev --turbopack\" \"nodemon --watch server --ext ts --exec ts-node server/index.ts\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -14,6 +14,7 @@
     "apexcharts": "^4.7.0",
     "concurrently": "^9.1.2",
     "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "next": "15.3.2",
     "pg": "^8.16.0",
@@ -32,6 +33,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
+    "nodemon": "^3.1.10",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5"

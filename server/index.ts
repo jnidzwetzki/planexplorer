@@ -2,6 +2,8 @@
 // Express server acting as a proxy to a real PostgreSQL instance
 // All comments in English
 
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -26,11 +28,16 @@ app.use(express.json());
  * @param {import('express').Response} res
  */
 app.post('/query', async (req: any, res: any) => {
-  const { sql, params } = req.body;
+  const { sql, params, prepare } = req.body;
   if (!sql) {
     return res.status(400).json({ error: 'Missing SQL statement' });
   }
   try {
+    if (prepare) {
+      // Drop table if exists before prepare steps
+      await pool.query('DROP TABLE IF EXISTS data');
+      // ...other prepare steps if any...
+    }
     const result = await pool.query(sql, params || []);
     res.json({ rows: result.rows, fields: result.fields });
   } catch (err) {
@@ -50,5 +57,14 @@ app.get('/ping', async (req: any, res: any) => {
 });
 
 app.listen(port, '127.0.0.1', () => {
-  console.log(`PostgreSQL proxy server listening on http://localhost:${port}`);
+  // Only use pool.options for log output
+  const host = pool.options?.host;
+  const pgPort = pool.options?.port;
+  const user = pool.options?.user;
+  const database = pool.options?.database;
+  console.log('──────────────────────────────────────────────');
+  console.log('🚀 PostgreSQL Proxy Server is up and running!');
+  console.log(`→ Listening on:   http://localhost:${port}`);
+  console.log(`→ Target DB:      postgresql://${user}@${host}:${pgPort}/${database}`);
+  console.log('──────────────────────────────────────────────');
 });
