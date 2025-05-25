@@ -31,6 +31,7 @@ export default function Home() {
   const [planCount, setPlanCount] = useState(0);
   const [planFingerprintByCombination, setPlanFingerprintByCombination] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | undefined>(undefined);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   // Description fields for both dimensions
   const DEFAULT_DESCRIPTION_0 = "Dimension 0";
   const DEFAULT_DESCRIPTION_1 = "Dimension 1";
@@ -43,6 +44,7 @@ export default function Home() {
 
   async function handleExecute() {
     setIsExecuting(true);
+    setProgress(null); // Progress will be set by onProgress callback from handleExecuteLogic
     setPlanFingerprintByCombination({}); // Clear heatmap before execution
     clearPlanFingerprints(); // Clear fingerprints and counter before execution
     setError(undefined); // Clear previous error
@@ -58,6 +60,7 @@ export default function Home() {
       preparation: preparationValue,
       backend,
       proxyUrl,
+      onProgress: (current, total) => setProgress({ current, total }),
     });
     setPreparationResults(res.preparationResults);
     setResults(res.sqlResults);
@@ -68,6 +71,7 @@ export default function Home() {
     setSampleCount(res.sampleCount);
     setTotalExecutions(res.totalExecutions);
     setIsExecuting(false);
+    setProgress(null);
   }
 
   // Handler to load demo query 1: first clear, then set demo query values
@@ -232,6 +236,14 @@ export default function Home() {
       {error && (
         <div style={{ color: '#dc2626', background: '#fff0f0', border: '1.5px solid #ef4444', borderRadius: 8, padding: '12px 18px', marginBottom: 18, fontWeight: 600 }}>
           Error: {error}
+        </div>
+      )}
+      {isExecuting && progress && (
+        <div style={{ margin: "1em 0" }}>
+          <progress value={progress.current} max={progress.total} style={{ width: "100%" }} />
+          <div style={{ textAlign: "center", fontSize: "0.9em" }}>
+            Query {progress.current} of {progress.total}
+          </div>
         </div>
       )}
       <ResultList

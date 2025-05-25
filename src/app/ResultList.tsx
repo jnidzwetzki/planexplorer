@@ -97,10 +97,10 @@ const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, 
 
 Heatmap.displayName = "Heatmap";
 
-// Number of plans info
-const PlanCountInfo: React.FC<{ planCount?: number }> = ({ planCount }) => (
-  planCount !== undefined && planFingerprintMap.size > 0 ? (
-    <div className={styles.planCount}>Number of different plans: {planCount}</div>
+// Number of plans info (always show live count from planFingerprintMap)
+const PlanCountInfo: React.FC = () => (
+  planFingerprintMap.size > 0 ? (
+    <div className={styles.planCount}>Number of different plans: {planFingerprintMap.size}</div>
   ) : null
 );
 
@@ -153,10 +153,13 @@ export default function ResultList({ results = [], preparationResults = [], plan
     planUsageCount[id] = (planUsageCount[id] || 0) + 1;
   });
 
+  // Show info text only if nothing was executed and keine Fingerprints vorhanden
+  const showNoResultInfo = !hasExecuted && planFingerprintMap.size === 0;
+
   return (
     <div className={styles.resultBox}>
       <Heatmap planFingerprintByCombination={planFingerprintByCombination} dim0Name={dim0Name} dim1Name={dim1Name} />
-      <PlanCountInfo planCount={planCount} />
+      <PlanCountInfo />
       <PlanFingerprintMapList planUsageCount={planUsageCount} />
       {/* Show collapsibles only if something was executed, otherwise show info text */}
       {hasExecuted ? (
@@ -207,7 +210,9 @@ export default function ResultList({ results = [], preparationResults = [], plan
           )}
         </div>
       ) : (
-        <div className={styles.noResult} style={{textAlign: 'center'}}>Please execute a query</div>
+        showNoResultInfo && (
+          <div className={styles.noResult} style={{textAlign: 'center'}}>Please execute a query</div>
+        )
       )}
     </div>
   );
