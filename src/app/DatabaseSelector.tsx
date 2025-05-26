@@ -36,7 +36,16 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
         }
       } else {
         setTestStatus('error');
-        setTestMessage(`HTTP error: ${resp.status}`);
+        let errorMsg = `HTTP error: ${resp.status}`;
+        try {
+          const data = await resp.json();
+          if (data && data.error) {
+            errorMsg = `Server error: ${data.error}`;
+          }
+        } catch {
+          // If JSON parsing fails, keep the original error message
+        }
+        setTestMessage(errorMsg);
       }
     } catch (err) {
       clearTimeout(timeout);

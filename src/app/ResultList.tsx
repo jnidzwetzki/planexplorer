@@ -6,19 +6,36 @@ import { planFingerprintMap, planJsonById } from "./handleExecuteLogic";
 // Dynamically import ReactApexChart to avoid SSR issues
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
+interface QueryResult {
+  query: string;
+  result?: Record<string, unknown> | unknown[];
+  error?: string;
+  combinationKey?: string;
+}
+
 interface ResultListProps {
-  results?: string[];
-  preparationResults?: string[];
+  results?: QueryResult[];
+  preparationResults?: QueryResult[];
   planFingerprintByCombination: Record<string, number>;
   dim0Name: string;
   dim1Name: string;
-  sampled?: boolean;
-  sampleCount?: number;
-  totalExecutions?: number;
 }
 
-// Helper to transform planFingerprintByCombination into ApexCharts heatmap data
-function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<string, number>, dim0Name: string, dim1Name: string) {
+// Helper to generate ApexCharts heatmap options
+function getHeatmapOptions(xArr: number[], yArr: number[], dim0Name: string, dim1Name: string) {
+  return {
+    chart: { type: "heatmap" as const },
+    dataLabels: { enabled: false },
+    xaxis: { categories: xArr.map(x => x.toString()), title: { text: dim0Name } },
+    yaxis: yArr.length > 1 ? { title: { text: dim1Name } } : { show: false },
+    grid: { padding: { left: 5, right: 5, bottom: 5, top: 5 } },
+    colors: ["#008FFB"],
+    title: { text: "Plan Fingerprint Heatmap" },
+  };
+}
+
+// Helper to transform planFingerprintByCombination into ApexCharts heatmap series
+function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<string, number>) {
   // Parse keys like "i,j" into 2D array
   const keys = Object.keys(planFingerprintByCombination);
   const xSet = new Set<number>();
@@ -40,16 +57,52 @@ function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<stri
   });
   // Prepare ApexCharts heatmap series
   const series = data.map((row, i) => ({ name: `${yArr[i]}`, data: row }));
-  const options = {
-    chart: { type: "heatmap" as const },
-    dataLabels: { enabled: false },
-    xaxis: { categories: xArr.map(x => x.toString()), title: { text: dim0Name } },
-    yaxis: yArr.length > 1 ? { title: { text: dim1Name } } : { show: false },
-    grid: { padding: { left: 5, right: 5, bottom: 5, top: 5 } },
-    colors: ["#008FFB"],
-    title: { text: "Plan Fingerprint Heatmap" },
-  };
-  return { series, options };
+  return series;
+}
+
+// Helper to build a mapping from combinationKey to Total Cost directly from results
+function getTotalCostByCombinationFromResults(results: QueryResult[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  results.forEach((r, idx) => {
+    const combinationKey = r.combinationKey || String(idx);
+    const data = r.result;
+    if (!data || typeof data !== 'object' || !('rows' in data)) return;
+    const rows = (data as { rows: unknown[] }).rows;
+    const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+    const explainJsonStr = explainRow && Object.values(explainRow)[0];
+    if (explainJsonStr) {
+      const parsed = typeof explainJsonStr === 'string' ? JSON.parse(explainJsonStr) : explainJsonStr;
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].Plan) {
+        const plan = parsed[0].Plan;
+        if (typeof plan["Total Cost"] === "number") {
+          result[combinationKey] = plan["Total Cost"];
+        }
+      }
+    }
+  });
+  return result;
+}
+
+function getPlanRowsByCombinationFromResults(results: QueryResult[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  results.forEach((r, idx) => {
+    const combinationKey = r.combinationKey || String(idx);
+    const data = r.result;
+    if (!data || typeof data !== 'object' || !('rows' in data)) return;
+    const rows = (data as { rows: unknown[] }).rows;
+    const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+    const explainJsonStr = explainRow && Object.values(explainRow)[0];
+    if (explainJsonStr) {
+      const parsed = typeof explainJsonStr === 'string' ? JSON.parse(explainJsonStr) : explainJsonStr;
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].Plan) {
+        const plan = parsed[0].Plan;
+        if (typeof plan["Plan Rows"] === "number") {
+          result[combinationKey] = plan["Plan Rows"];
+        }
+      }
+    }
+  });
+  return result;
 }
 
 // Arrow icon for collapsibles
@@ -67,16 +120,20 @@ const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, 
     if (!planFingerprintByCombination || Object.keys(planFingerprintByCombination).length === 0) return null;
     const keys = Object.keys(planFingerprintByCombination);
     const ySet = new Set<number>();
+    const xSet = new Set<number>();
     keys.forEach(k => {
-      const [, y] = k.split(",").map(Number);
+      const [x, y] = k.split(",").map(Number);
+      xSet.add(x);  
       ySet.add(y);
     });
+    const xArr = Array.from(xSet).sort((a, b) => a - b);
     const yArr = Array.from(ySet);
     // Minimum height 350, add 30px per y-entry above 10
     const baseHeight = 350;
     const extraRows = Math.max(0, yArr.length - 10);
     const height = baseHeight + extraRows * 15;
-    const { series, options } = getHeatmapFromPlanFingerprint(planFingerprintByCombination, dim0Name, dim1Name);
+    const series = getHeatmapFromPlanFingerprint(planFingerprintByCombination);
+    const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
     return (
       <div style={{ margin: "24px 0" }}>
         <ReactApexChart options={options} series={series} type="heatmap" height={height} />
@@ -95,6 +152,113 @@ const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, 
 );
 
 Heatmap.displayName = "Heatmap";
+
+// Blue color palette (alternative to cividis)
+const bluePalette = [
+  '#f0fbff', '#d2f0ff', '#7fd3fb', '#4fa3e3', '#1565a6', '#2b3a4b', '#000000'
+];
+
+// Beispiel: So kann man die Palette in getCividisColorRanges nutzen
+function getBlueColorRanges(min: number, max: number) {
+  return Array.from({ length: bluePalette.length }, (_, i) => {
+    const from = min + (i / bluePalette.length) * (max - min);
+    const to = min + ((i + 1) / bluePalette.length) * (max - min);
+    return {
+      from,
+      to,
+      color: bluePalette[i],
+      name: `${from.toFixed(0)} - ${to.toFixed(0)}`
+    };
+  });
+}
+
+// Total Cost heatmap visualization
+const TotalCostHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
+  ({ results, dim0Name, dim1Name }) => {
+    const totalCostByCombination = getTotalCostByCombinationFromResults(results);
+    if (!totalCostByCombination || Object.keys(totalCostByCombination).length === 0) return null;
+    const keys = Object.keys(totalCostByCombination);
+    const ySet = new Set<number>();
+    const xSet = new Set<number>();
+    keys.forEach(k => {
+      const [x, y] = k.split(",").map(Number);
+      xSet.add(x);
+      ySet.add(y);
+    });
+    const xArr = Array.from(xSet).sort((a, b) => a - b);
+    const yArr = Array.from(ySet);
+    const baseHeight = 350;
+    const extraRows = Math.max(0, yArr.length - 10);
+    const height = baseHeight + extraRows * 15;
+    const series = getHeatmapFromPlanFingerprint(totalCostByCombination);
+    const allCosts = Object.values(totalCostByCombination);
+    const min = Math.min(...allCosts);
+    const max = Math.max(...allCosts);
+    const ranges = getBlueColorRanges(min, max);
+    const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
+    const chartOptions = {
+      ...options,
+      title: { text: "Total Cost Heatmap" },
+      plotOptions: {
+        heatmap: {
+          colorScale: {
+            ranges
+          }
+        }
+      }
+    };
+    return (
+      <div style={{ margin: "24px 0" }}>
+        <ReactApexChart options={chartOptions} series={series} type="heatmap" height={height} />
+      </div>
+    );
+  }
+);
+TotalCostHeatmap.displayName = "TotalCostHeatmap";
+
+// Plan Rows heatmap visualization
+const PlanRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
+  ({ results, dim0Name, dim1Name }) => {
+    const planRowsByCombination = getPlanRowsByCombinationFromResults(results);
+    if (!planRowsByCombination || Object.keys(planRowsByCombination).length === 0) return null;
+    const keys = Object.keys(planRowsByCombination);
+    const ySet = new Set<number>();
+    const xSet = new Set<number>();
+    keys.forEach(k => {
+      const [x, y] = k.split(",").map(Number);
+      xSet.add(x);
+      ySet.add(y);
+    });
+    const xArr = Array.from(xSet).sort((a, b) => a - b);
+    const yArr = Array.from(ySet);
+    const baseHeight = 350;
+    const extraRows = Math.max(0, yArr.length - 10);
+    const height = baseHeight + extraRows * 15;
+    const series = getHeatmapFromPlanFingerprint(planRowsByCombination);
+    const allRows = Object.values(planRowsByCombination);
+    const min = Math.min(...allRows);
+    const max = Math.max(...allRows);
+    const ranges = getBlueColorRanges(min, max);
+    const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
+    const chartOptions = {
+      ...options,
+      title: { text: "Expected Result Tuples" },
+      plotOptions: {
+        heatmap: {
+          colorScale: {
+            ranges
+          }
+        }
+      }
+    };
+    return (
+      <div style={{ margin: "24px 0" }}>
+        <ReactApexChart options={chartOptions} series={series} type="heatmap" height={height} />
+      </div>
+    );
+  }
+);
+PlanRowsHeatmap.displayName = "PlanRowsHeatmap";
 
 // Number of plans info (always show live count from planFingerprintMap)
 const PlanCountInfo: React.FC = () => (
@@ -144,7 +308,7 @@ const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number>,
 
 PlanFingerprintMapList.displayName = "PlanFingerprintMapList";
 
-export default function ResultList({ results = [], preparationResults = [], planFingerprintByCombination, dim0Name, dim1Name, sampled, sampleCount, totalExecutions }: ResultListProps) {
+export default function ResultList({ results = [], preparationResults = [], planFingerprintByCombination, dim0Name, dim1Name }: ResultListProps) {
   const [showPreparation, setShowPreparation] = useState(false);
   const [showSql, setShowSql] = useState(false);
   const hasExecuted = results.length > 0 || preparationResults.length > 0;
@@ -161,6 +325,8 @@ export default function ResultList({ results = [], preparationResults = [], plan
   return (
     <div className={styles.resultBox}>
       <Heatmap planFingerprintByCombination={planFingerprintByCombination} dim0Name={dim0Name} dim1Name={dim1Name} />
+      <TotalCostHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+      <PlanRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
       <PlanCountInfo />
       <PlanFingerprintMapList planUsageCount={planUsageCount} hasExecuted={hasExecuted} />
       {/* Show collapsibles only if something was executed, otherwise show info text */}
@@ -176,7 +342,8 @@ export default function ResultList({ results = [], preparationResults = [], plan
                 <ul className={styles.resultList}>
                   {preparationResults.map((prep, idx) => (
                     <li key={idx} className={styles.resultItem}>
-                      <pre className={styles.preparation}>{prep}</pre>
+                      <pre className={styles.preparation}>{prep.query}
+{prep.error ? `Error: ${prep.error}` : `Result: ${JSON.stringify(prep.result, null, 2)}`}</pre>
                     </li>
                   ))}
                 </ul>
@@ -188,12 +355,6 @@ export default function ResultList({ results = [], preparationResults = [], plan
           <div style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', marginTop: 8 }} onClick={() => setShowSql(v => !v)}>
             <Arrow open={showSql} />
             <strong className={styles.resultTitle}>Detailed SQL Queries</strong>
-            {/* Show sample info if results are sampled */}
-            {sampled && (
-              <span className={styles.planUsageCount}>
-                (Sampled {sampleCount} of {totalExecutions})
-              </span>
-            )}
           </div>
           {showSql && (
             <div className={styles.resultContent}>
@@ -201,9 +362,10 @@ export default function ResultList({ results = [], preparationResults = [], plan
                 <span className={styles.noResult}>No result</span>
               ) : (
                 <ul className={styles.resultList}>
-                  {results.map((sql, idx) => (
+                  {results.map((res, idx) => (
                     <li key={idx} className={styles.resultItem}>
-                      <span className={styles.sql}>{sql}</span>
+                      <pre className={styles.sql}>{res.query}
+{res.error ? `\nError: ${res.error}` : `\nResult: ${JSON.stringify(res.result, null, 2)}`}</pre>
                     </li>
                   ))}
                 </ul>

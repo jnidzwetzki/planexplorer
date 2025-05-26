@@ -7,6 +7,9 @@ interface SqlQueryInputProps {
   dim1Active: boolean;
   preparationValue: string; // Value for preparation steps textarea
   onPreparationChange: (v: string) => void; // onChange for preparation steps
+  executeQueries?: boolean;
+  onExecuteQueriesChange?: (checked: boolean) => void;
+  showExperimentGroup: boolean; // Now required
 }
 
 // Default preparation steps for the preparation textarea
@@ -22,7 +25,7 @@ export const DEFAULT_PREPARATION_STEPS = [
 
 export const DEFAULT_SQL_QUERY = "SELECT * FROM data WHERE key > %%DIMENSION0%%;";
 
-export default function SqlQueryInput({ value, onChange, dim1Active, preparationValue, onPreparationChange }: SqlQueryInputProps) {
+export default function SqlQueryInput({ value, onChange, dim1Active, preparationValue, onPreparationChange, executeQueries = false, onExecuteQueriesChange, showExperimentGroup }: SqlQueryInputProps) {
   // Ref for the textarea to control cursor position
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -89,6 +92,25 @@ export default function SqlQueryInput({ value, onChange, dim1Active, preparation
         )}
         {' '}in your query.
       </div>
+      {/* Experiment Button Group */}
+      {showExperimentGroup && (
+        <fieldset className={styles.experimentBox}>
+          <legend className={styles.dimensionLegend} style={{marginBottom: 0}}>
+            Experiment
+          </legend>
+          <label className={styles.experimentCheckboxLabel}>
+            <input
+              type="checkbox"
+              className={styles.experimentCheckbox}
+              checked={executeQueries}
+              onChange={e => onExecuteQueriesChange?.(e.target.checked)}
+            />
+            <span title="Without this option, the queries are just planned">
+              Execute Queries
+            </span>
+          </label>
+        </fieldset>
+      )}
     </div>
   );
 }

@@ -115,9 +115,9 @@
   font-size: 15px;
   display: block;
   min-width: 180px;
-  max-width: 320px;
+  max-width: 600px; /* Increased from 320px to 600px */
   box-sizing: border-box;
-  white-space: nowrap;
+  white-space: pre-line; /* Allow line breaks for better readability */
   overflow: hidden;
   text-overflow: ellipsis;
 }

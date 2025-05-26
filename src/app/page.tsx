@@ -5,20 +5,21 @@ import IntervalSelector from "./IntervalSelector";
 import SqlQueryInput, { DEFAULT_PREPARATION_STEPS, DEFAULT_SQL_QUERY } from "./SqlQueryInput";
 import ResultList from "./ResultList";
 import styles from './page.module.css';
-import { handleExecuteLogic, clearPlanFingerprints } from "./handleExecuteLogic";
+import { handleExecuteLogic, clearPlanFingerprints, QueryResult } from "./handleExecuteLogic";
 import DatabaseSelector, { DatabaseBackend } from "./DatabaseSelector";
 
 export default function Home() {
   // Always use pglite as default backend, even in dev:full mode
   const isDevFull = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_DEVFULL === '1';
   const [backend, setBackend] = useState<DatabaseBackend>("pglite");
+  const [executeQueries, setExecuteQueries] = useState(false);
   const [dim1Active, setDim1Active] = useState(false);
   const [start0, setStart0] = useState(0);
   const [end0, setEnd0] = useState(50000);
   const [start1, setStart1] = useState(0);
   const [end1, setEnd1] = useState(10);
-  const [results, setResults] = useState<string[]>([]);
-  const [preparationResults, setPreparationResults] = useState<string[]>([]);
+  const [results, setResults] = useState<QueryResult[]>([]);
+  const [preparationResults, setPreparationResults] = useState<QueryResult[]>([]);
   const [start0Valid, setStart0Valid] = useState(true);
   const [end0Valid, setEnd0Valid] = useState(true);
   const [start1Valid, setStart1Valid] = useState(true);
@@ -36,9 +37,6 @@ export default function Home() {
   const DEFAULT_DESCRIPTION_1 = "Dimension 1";
   const [description0, setDescription0] = useState(DEFAULT_DESCRIPTION_0);
   const [description1, setDescription1] = useState(DEFAULT_DESCRIPTION_1);
-  const [sampled, setSampled] = useState<boolean>(false);
-  const [sampleCount, setSampleCount] = useState<number | undefined>(undefined);
-  const [totalExecutions, setTotalExecutions] = useState<number | undefined>(undefined);
   const [proxyUrl, setProxyUrl] = useState<string>("http://localhost:4000");
 
   async function handleExecute() {
@@ -60,14 +58,12 @@ export default function Home() {
       backend,
       proxyUrl,
       onProgress: (current, total) => setProgress({ current, total }),
+      executeQueries, // Pass the new flag
     });
     setPreparationResults(res.preparationResults);
     setResults(res.sqlResults);
     setPlanFingerprintByCombination(res.planFingerprintByCombination);
     setError(res.error); // Set error if present
-    setSampled(res.sampled ?? false);
-    setSampleCount(res.sampleCount);
-    setTotalExecutions(res.totalExecutions);
     setIsExecuting(false);
     setProgress(null);
   }
@@ -129,13 +125,21 @@ export default function Home() {
     setError(undefined); // Clear error on clear
   };
 
+  // Ensure experiment group is reset when backend changes
+  function handleBackendChange(newBackend: DatabaseBackend) {
+    setBackend(newBackend);
+    if (newBackend !== 'proxy') {
+      setExecuteQueries(false);
+    }
+  }
+
   return (
     <div className={styles.container}>
       <h1 className={styles.heading}>Query Plan Explorer</h1>
       {isDevFull && (
         <DatabaseSelector
           value={backend}
-          onChange={setBackend}
+          onChange={handleBackendChange}
           proxyUrl={proxyUrl}
           onProxyUrlChange={setProxyUrl}
         />
@@ -184,6 +188,9 @@ export default function Home() {
           dim1Active={dim1Active}
           preparationValue={preparationValue}
           onPreparationChange={setPreparationValue}
+          executeQueries={executeQueries}
+          onExecuteQueriesChange={setExecuteQueries}
+          showExperimentGroup={backend === 'proxy'}
         />
       </div>
       <div className={styles.buttonRow}>
@@ -250,9 +257,6 @@ export default function Home() {
         planFingerprintByCombination={planFingerprintByCombination}
         dim0Name={description0}
         dim1Name={description1}
-        sampled={sampled}
-        sampleCount={sampleCount}
-        totalExecutions={totalExecutions}
       />
     </div>
   );

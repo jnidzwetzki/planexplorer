@@ -16,16 +16,21 @@ export interface HandleExecuteParams {
   backend: "pglite" | "proxy";
   proxyUrl?: string;
   onProgress?: (current: number, total: number) => void; // Optional progress callback
+  executeQueries: boolean; // Now required
+}
+
+export interface QueryResult {
+  query: string;
+  result?: Record<string, unknown> | unknown[];
+  error?: string;
+  combinationKey?: string;
 }
 
 export interface HandleExecuteResult {
-  preparationResults: string[];
-  sqlResults: string[];
-  planFingerprintByCombination: Record<string, number>; // New: maps dimension combination to plan ID
+  preparationResults: QueryResult[];
+  sqlResults: QueryResult[];
+  planFingerprintByCombination: Record<string, number>; // Maps dimension combination to plan ID
   error?: string; // First error encountered, if any
-  sampled?: boolean; // Indicates if results are sampled
-  sampleCount?: number; // Number of samples in sqlResults
-  totalExecutions?: number; // Total number of executions
 }
 
 // Store all unique plan fingerprints and assign them a sequential id
@@ -120,58 +125,28 @@ function isSelectStatement(stmt: string): boolean {
 }
 
 const FLOAT_TOLERANCE = 1e-8; // Used to avoid floating point errors in loop conditions
-const SAMPLE_SIZE = 100; // Used for sampling in getSampleIndices
-
-function getSampleIndices(totalExecutions: number): { sampleIndices?: Set<number>, sampled: boolean, sampleCount: number } {
-  if (totalExecutions > SAMPLE_SIZE) {
-    const sampleIndices = new Set<number>();
-    for (let k = 0; k < SAMPLE_SIZE; k++) {
-      sampleIndices.add(Math.floor(k * totalExecutions / SAMPLE_SIZE));
-    }
-    return { sampleIndices, sampled: true, sampleCount: SAMPLE_SIZE };
-  } else {
-    return { sampleIndices: undefined, sampled: false, sampleCount: totalExecutions };
-  }
-}
 
 async function processPreparation(
   preparation: string,
   getResult: (stmt: string) => Promise<{ ok: boolean, data: unknown }>
-): Promise<{ results: string[], firstError?: string }> {
-  const results: string[] = [];
+): Promise<{ results: QueryResult[], firstError?: string }> {
+  const results: QueryResult[] = [];
   let firstError: string | undefined = undefined;
   for (const stmt of getStatements(preparation)) {
     try {
       const { ok, data } = await getResult(stmt);
       if (ok) {
-        results.push(`${stmt};\nResult: ${JSON.stringify(data, null, 2)}`);
+        results.push({ query: stmt, result: data as Record<string, unknown> | unknown[] });
       } else {
         if (!firstError) firstError = `${stmt};\nError: ${(data as { error?: string }).error}`;
-        results.push(`${stmt};\nError: ${(data as { error?: string }).error}`);
+        results.push({ query: stmt, error: (data as { error?: string }).error, result: data as Record<string, unknown> | unknown[] });
       }
     } catch (err) {
       if (!firstError) firstError = `${stmt};\nError: ${err instanceof Error ? err.message : String(err)}`;
-      results.push(`${stmt};\nError: ${err instanceof Error ? err.message : String(err)}`);
+      results.push({ query: stmt, error: err instanceof Error ? err.message : String(err) });
     }
   }
   return { results, firstError };
-}
-
-// Helper to calculate total number of executions for progress bar and sampling
-function calculateTotalExecutions(dim1Active: boolean, start0: number, end0: number, step0: number, start1: number, end1: number, step1: number): number {
-  let total = 0;
-  if (dim1Active) {
-    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
-      for (let j = start1; j <= end1 + FLOAT_TOLERANCE; j += step1) {
-        total++;
-      }
-    }
-  } else {
-    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
-      total++;
-    }
-  }
-  return total;
 }
 
 // Helper to replace dimension placeholders in SQL
@@ -203,7 +178,6 @@ async function iterateExecutions({
   sqlQuery,
   callback,
   onProgress,
-  totalExecutions,
 }: {
   dim1Active: boolean;
   start0: number;
@@ -214,8 +188,7 @@ async function iterateExecutions({
   step1: number;
   sqlQuery: string;
   callback: (args: ExecutionCallbackArgs) => Promise<void>;
-  onProgress?: (current: number, total: number) => void;
-  totalExecutions: number;
+  onProgress?: (current: number) => void;
 }) {
   let executionIndex = 0;
   if (dim1Active) {
@@ -226,7 +199,7 @@ async function iterateExecutions({
         const sql = replaceDimensions(sqlQuery, iFixed.toString(), jFixed.toString());
         const combinationKey = `${iFixed},${jFixed}`;
         await callback({ sql, combinationKey, iFixed, jFixed, executionIndex });
-        if (onProgress) onProgress(executionIndex + 1, totalExecutions);
+        if (onProgress) onProgress(executionIndex + 1);
         executionIndex++;
       }
     }
@@ -236,28 +209,46 @@ async function iterateExecutions({
       const sql = replaceDimensions(sqlQuery, iFixed.toString(), '');
       const combinationKey = `${iFixed},0`;
       await callback({ sql, combinationKey, iFixed, jFixed: 0, executionIndex });
-      if (onProgress) onProgress(executionIndex + 1, totalExecutions);
+      if (onProgress) onProgress(executionIndex + 1);
       executionIndex++;
     }
   }
 }
 
+// Helper to calculate total number of executions for progress bar
+function calculateTotalExecutions(dim1Active: boolean, start0: number, end0: number, step0: number, start1: number, end1: number, step1: number): number {
+  let total = 0;
+  if (dim1Active) {
+    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
+      for (let j = start1; j <= end1 + FLOAT_TOLERANCE; j += step1) {
+        total++;
+      }
+    }
+  } else {
+    for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
+      total++;
+    }
+  }
+  return total;
+}
+
 // --- Proxy-specific helpers ---
-async function proxyProcessSql({ sql, combinationKey, sampleIndices, executionIndex, planFingerprintByCombination, proxyUrl, handleExplainResult, sqlResults }: {
+async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombination, proxyUrl, handleExplainResult, sqlResults, executeQueries }: {
   sql: string,
   combinationKey: string,
-  sampleIndices?: Set<number>,
-  executionIndex: number,
   planFingerprintByCombination: Record<string, number>,
   proxyUrl: string,
   handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Record<string, number>) => void,
-  sqlResults: string[],
+  sqlResults: QueryResult[],
+  executeQueries: boolean, // Now required
 }) {
   for (const stmt of getStatements(sql)) {
     let queryToRun = stmt;
     let isExplain = false;
     if (isSelectStatement(stmt)) {
-      queryToRun = `EXPLAIN (FORMAT JSON) ${stmt}`;
+      queryToRun = executeQueries
+        ? `EXPLAIN (ANALYZE, FORMAT JSON) ${stmt}`
+        : `EXPLAIN (FORMAT JSON) ${stmt}`;
       isExplain = true;
     }
     try {
@@ -278,38 +269,33 @@ async function proxyProcessSql({ sql, combinationKey, sampleIndices, executionIn
             }
           } catch {}
         }
-        if (!sampleIndices || sampleIndices.has(executionIndex)) {
-          sqlResults.push(`${queryToRun};\nResult: ${JSON.stringify(data, null, 2)}`);
-        }
+        sqlResults.push({ query: queryToRun, result: data, combinationKey });
       } else {
-        if (!sampleIndices || sampleIndices.has(executionIndex)) {
-          sqlResults.push(`${queryToRun};\nError: ${data.error}`);
-        }
+        sqlResults.push({ query: queryToRun, error: data.error, result: data, combinationKey });
       }
     } catch (err) {
-      if (!sampleIndices || sampleIndices.has(executionIndex)) {
-        sqlResults.push(`${queryToRun};\nError: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      sqlResults.push({ query: queryToRun, error: err instanceof Error ? err.message : String(err), combinationKey });
     }
   }
 }
 
 // --- PGlite-specific helpers ---
-async function pgliteProcessSql({ db, sql, combinationKey, sampleIndices, executionIndex, planFingerprintByCombination, handleExplainResult, sqlResults }: {
+async function pgliteProcessSql({ db, sql, combinationKey, planFingerprintByCombination, handleExplainResult, sqlResults, executeQueries }: {
   db: PGlite,
   sql: string,
   combinationKey: string,
-  sampleIndices?: Set<number>,
-  executionIndex: number,
   planFingerprintByCombination: Record<string, number>,
   handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Record<string, number>) => void,
-  sqlResults: string[],
+  sqlResults: QueryResult[],
+  executeQueries: boolean, // Now required
 }) {
   for (const stmt of getStatements(sql)) {
     let queryToRun = stmt;
     let isExplain = false;
     if (isSelectStatement(stmt)) {
-      queryToRun = `EXPLAIN (FORMAT JSON) ${stmt}`;
+      queryToRun = executeQueries
+        ? `EXPLAIN (ANALYZE, FORMAT JSON) ${stmt}`
+        : `EXPLAIN (FORMAT JSON) ${stmt}`;
       isExplain = true;
     }
     try {
@@ -326,13 +312,9 @@ async function pgliteProcessSql({ db, sql, combinationKey, sampleIndices, execut
           window.console.log('Explain JSON parse error:', parseErr);
         }
       }
-      if (!sampleIndices || sampleIndices.has(executionIndex)) {
-        sqlResults.push(`${queryToRun};\nResult: ${JSON.stringify(result, null, 2)}`);
-      }
+      sqlResults.push({ query: queryToRun, result, combinationKey });
     } catch (err) {
-      if (!sampleIndices || sampleIndices.has(executionIndex)) {
-        sqlResults.push(`${queryToRun};\nError: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      sqlResults.push({ query: queryToRun, error: err instanceof Error ? err.message : String(err), combinationKey });
     }
   }
 }
@@ -346,7 +328,7 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
   let firstError: string | undefined = undefined;
   const { onProgress } = params;
   // Preparation
-  let preparationResults: string[] = [];
+  let preparationResults: QueryResult[] = [];
   if (preparation) {
     const prep = await processPreparation(preparation, async (stmt) => {
       const resp = await fetch(`${proxyUrl}/query`, {
@@ -361,10 +343,8 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
     firstError = prep.firstError;
   }
   // Execution
+  const sqlResults: QueryResult[] = [];
   const totalExecutions = calculateTotalExecutions(dim1Active, start0, end0, step0, start1, end1, step1);
-  if (onProgress) onProgress(0, totalExecutions);
-  const { sampleIndices, sampled, sampleCount } = getSampleIndices(totalExecutions);
-  const sqlResults: string[] = [];
   await iterateExecutions({
     dim1Active,
     start0,
@@ -374,30 +354,28 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
     end1,
     step1,
     sqlQuery,
-    callback: async ({ sql, combinationKey, executionIndex }) => {
+    callback: async ({ sql, combinationKey }) => {
       await proxyProcessSql({
         sql,
         combinationKey,
-        sampleIndices,
-        executionIndex,
         planFingerprintByCombination,
         proxyUrl,
         handleExplainResult,
         sqlResults,
+        executeQueries: params.executeQueries,
       });
     },
-    onProgress,
-    totalExecutions,
+    onProgress: onProgress ? (current) => onProgress(current, totalExecutions) : undefined,
   });
-  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError, sampled, sampleCount, totalExecutions };
+  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError };
 }
 
 async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExecuteResult> {
   const {
     dim1Active, start0, end0, step0, start1, end1, step1, sqlQuery, preparation
   } = params;
-  const preparationResults: string[] = [];
-  const sqlResults: string[] = [];
+  const preparationResults: QueryResult[] = [];
+  const sqlResults: QueryResult[] = [];
   const planFingerprintByCombination: Record<string, number> = {};
   let firstError: string | undefined = undefined;
   const db = new PGlite();
@@ -417,8 +395,6 @@ async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExe
   }
   // Execution
   const totalExecutions = calculateTotalExecutions(dim1Active, start0, end0, step0, start1, end1, step1);
-  if (onProgress) onProgress(0, totalExecutions);
-  const { sampleIndices, sampled, sampleCount } = getSampleIndices(totalExecutions);
   await iterateExecutions({
     dim1Active,
     start0,
@@ -428,22 +404,20 @@ async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExe
     end1,
     step1,
     sqlQuery,
-    callback: async ({ sql, combinationKey, executionIndex }) => {
+    callback: async ({ sql, combinationKey }) => {
       await pgliteProcessSql({
         db,
         sql,
         combinationKey,
-        sampleIndices,
-        executionIndex,
         planFingerprintByCombination,
         handleExplainResult,
         sqlResults,
+        executeQueries: params.executeQueries,
       });
     },
-    onProgress,
-    totalExecutions,
+    onProgress: onProgress ? (current) => onProgress(current, totalExecutions) : undefined,
   });
-  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError, sampled, sampleCount, totalExecutions };
+  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError };
 }
 
 export async function handleExecuteLogic(params: HandleExecuteParams): Promise<HandleExecuteResult> {

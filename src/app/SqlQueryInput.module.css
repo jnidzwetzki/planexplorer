@@ -41,3 +41,56 @@
   background: #e5e7eb;
   border-color: #a1a1aa;
 }
+
+.experimentBox {
+  background: #f9fafb;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  width: 100%;
+  margin-top: 24px;
+  margin-bottom: 18px;
+  padding: 18px 18px 12px 18px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.experimentBox legend {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2563eb;
+  margin-bottom: 0.2em;
+  padding: 0 6px;
+  line-height: 1.2;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.experimentTitle {
+  font-weight: 600;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.experimentCheckboxLabel {
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  gap: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.experimentCheckbox {
+  accent-color: #2563eb;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+}
+
+.experimentGroupTitle {
+  color: #2563eb;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
