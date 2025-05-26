@@ -29,7 +29,6 @@ export interface QueryResult {
 export interface HandleExecuteResult {
   preparationResults: QueryResult[];
   sqlResults: QueryResult[];
-  planFingerprintByCombination: Record<string, number>; // Maps dimension combination to plan ID
   error?: string; // First error encountered, if any
 }
 
@@ -37,6 +36,7 @@ export interface HandleExecuteResult {
 export const planFingerprintMap: Map<string, number> = new Map();
 export const planJsonById: Map<number, string> = new Map(); // Maps plan ID to full plan JSON string
 export let planIdCounter = 1;
+export let planFingerprintByCombination: Map<string, number> = new Map();
 
 // Specify types instead of any for walkNode and getPlanFingerprint
 interface PlanNode {
@@ -88,6 +88,7 @@ export function clearPlanFingerprints() {
   planFingerprintMap.clear();
   planJsonById.clear();
   planIdCounter = 1;
+  planFingerprintByCombination = new Map();
 }
 
 function getOrCreatePlanId(fingerprint: string, parsed: unknown): number {
@@ -103,13 +104,13 @@ function getOrCreatePlanId(fingerprint: string, parsed: unknown): number {
   return id;
 }
 
-function assignPlanIdToCombination(combinationKey: string, id: number, planFingerprintByCombination: Record<string, number>) {
+function assignPlanIdToCombination(combinationKey: string, id: number, planFingerprintByCombination: Map<string, number>) {
   if (combinationKey) {
-    planFingerprintByCombination[combinationKey] = id;
+    planFingerprintByCombination.set(combinationKey, id);
   }
 }
 
-function handleExplainResult(parsed: unknown, combinationKey: string, planFingerprintByCombination: Record<string, number>) {
+function handleExplainResult(parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) {
   const fingerprint = getPlanFingerprint(parsed);
   const id = getOrCreatePlanId(fingerprint, parsed);
   assignPlanIdToCombination(combinationKey, id, planFingerprintByCombination);
@@ -236,9 +237,9 @@ function calculateTotalExecutions(dim1Active: boolean, start0: number, end0: num
 async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombination, proxyUrl, handleExplainResult, sqlResults, executeQueries }: {
   sql: string,
   combinationKey: string,
-  planFingerprintByCombination: Record<string, number>,
+  planFingerprintByCombination: Map<string, number>,
   proxyUrl: string,
-  handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Record<string, number>) => void,
+  handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) => void,
   sqlResults: QueryResult[],
   executeQueries: boolean, // Now required
 }) {
@@ -284,8 +285,8 @@ async function pgliteProcessSql({ db, sql, combinationKey, planFingerprintByComb
   db: PGlite,
   sql: string,
   combinationKey: string,
-  planFingerprintByCombination: Record<string, number>,
-  handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Record<string, number>) => void,
+  planFingerprintByCombination: Map<string, number>,
+  handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) => void,
   sqlResults: QueryResult[],
   executeQueries: boolean, // Now required
 }) {
@@ -324,7 +325,8 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
   const {
     dim1Active, start0, end0, step0, start1, end1, step1, sqlQuery, preparation, proxyUrl = "http://localhost:4000"
   } = params;
-  const planFingerprintByCombination: Record<string, number> = {};
+  // Clear planFingerprintByCombination before use
+  planFingerprintByCombination.clear();
   let firstError: string | undefined = undefined;
   const { onProgress } = params;
   // Preparation
@@ -367,33 +369,34 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
     },
     onProgress: onProgress ? (current) => onProgress(current, totalExecutions) : undefined,
   });
-  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError };
+  return { preparationResults, sqlResults, error: firstError };
 }
 
 async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExecuteResult> {
   const {
     dim1Active, start0, end0, step0, start1, end1, step1, sqlQuery, preparation
   } = params;
-  const preparationResults: QueryResult[] = [];
-  const sqlResults: QueryResult[] = [];
-  const planFingerprintByCombination: Record<string, number> = {};
+  // Clear planFingerprintByCombination before use
+  planFingerprintByCombination.clear();
   let firstError: string | undefined = undefined;
   const db = new PGlite();
   const { onProgress } = params;
   // Preparation
+  let preparationResults: QueryResult[] = [];
   if (preparation) {
     const prep = await processPreparation(preparation, async (stmt) => {
       try {
         const result = await db.query(stmt);
         return { ok: true, data: result };
       } catch (err) {
-        return { ok: false, data: { error: err } };
+        return { ok: false, data: { error: err instanceof Error ? err.message : String(err) } };
       }
     });
-    preparationResults.push(...prep.results);
+    preparationResults = prep.results;
     firstError = prep.firstError;
   }
   // Execution
+  const sqlResults: QueryResult[] = [];
   const totalExecutions = calculateTotalExecutions(dim1Active, start0, end0, step0, start1, end1, step1);
   await iterateExecutions({
     dim1Active,
@@ -417,7 +420,7 @@ async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExe
     },
     onProgress: onProgress ? (current) => onProgress(current, totalExecutions) : undefined,
   });
-  return { preparationResults, sqlResults, planFingerprintByCombination, error: firstError };
+  return { preparationResults, sqlResults, error: firstError };
 }
 
 export async function handleExecuteLogic(params: HandleExecuteParams): Promise<HandleExecuteResult> {

@@ -29,7 +29,6 @@ export default function Home() {
   const [step1, setStep1] = useState(1);
   const [preparationValue, setPreparationValue] = useState(""); // Start with empty preparation steps
   const [isExecuting, setIsExecuting] = useState(false);
-  const [planFingerprintByCombination, setPlanFingerprintByCombination] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | undefined>(undefined);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   // Description fields for both dimensions
@@ -42,7 +41,6 @@ export default function Home() {
   async function handleExecute() {
     setIsExecuting(true);
     setProgress(null); // Progress will be set by onProgress callback from handleExecuteLogic
-    setPlanFingerprintByCombination({}); // Clear heatmap before execution
     clearPlanFingerprints(); // Clear fingerprints and counter before execution
     setError(undefined); // Clear previous error
     const res = await handleExecuteLogic({
@@ -58,11 +56,10 @@ export default function Home() {
       backend,
       proxyUrl,
       onProgress: (current, total) => setProgress({ current, total }),
-      executeQueries, // Pass the new flag
+      executeQueries,
     });
     setPreparationResults(res.preparationResults);
     setResults(res.sqlResults);
-    setPlanFingerprintByCombination(res.planFingerprintByCombination);
     setError(res.error); // Set error if present
     setIsExecuting(false);
     setProgress(null);
@@ -111,7 +108,6 @@ export default function Home() {
     setPreparationResults([]);
     setPreparationValue("");
     setSqlQuery("");
-    setPlanFingerprintByCombination({}); // Clear heatmap
     clearPlanFingerprints(); // Clear fingerprints and counter on clear
     setDim1Active(false); // Close Dimension 1 on clear
     setStart0(0); // Reset Dimension 0 start
@@ -254,9 +250,9 @@ export default function Home() {
       <ResultList
         results={results}
         preparationResults={preparationResults}
-        planFingerprintByCombination={planFingerprintByCombination}
         dim0Name={description0}
         dim1Name={description1}
+        isExecuting={isExecuting}
       />
     </div>
   );

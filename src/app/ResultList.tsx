@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import styles from "./ResultList.module.css";
 import dynamic from "next/dynamic";
-import { planFingerprintMap, planJsonById } from "./handleExecuteLogic";
+import { planFingerprintMap, planJsonById, planFingerprintByCombination } from "./handleExecuteLogic";
 
 // Dynamically import ReactApexChart to avoid SSR issues
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -16,9 +16,9 @@ interface QueryResult {
 interface ResultListProps {
   results?: QueryResult[];
   preparationResults?: QueryResult[];
-  planFingerprintByCombination: Record<string, number>;
   dim0Name: string;
   dim1Name: string;
+  isExecuting: boolean;
 }
 
 // Helper to generate ApexCharts heatmap options
@@ -35,9 +35,9 @@ function getHeatmapOptions(xArr: number[], yArr: number[], dim0Name: string, dim
 }
 
 // Helper to transform planFingerprintByCombination into ApexCharts heatmap series
-function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<string, number>) {
-  // Parse keys like "i,j" into 2D array
-  const keys = Object.keys(planFingerprintByCombination);
+function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Map<string, number>) {
+  const keys = Array.from(planFingerprintByCombination.keys());
+  const getValue = (k: string) => planFingerprintByCombination.get(k);
   const xSet = new Set<number>();
   const ySet = new Set<number>();
   keys.forEach(k => {
@@ -53,7 +53,7 @@ function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<stri
     const [x, y] = k.split(",").map(Number);
     const i = yArr.indexOf(y);
     const j = xArr.indexOf(x);
-    data[i][j] = planFingerprintByCombination[k];
+    data[i][j] = getValue(k) ?? 0;
   });
   // Prepare ApexCharts heatmap series
   const series = data.map((row, i) => ({ name: `${yArr[i]}`, data: row }));
@@ -61,8 +61,8 @@ function getHeatmapFromPlanFingerprint(planFingerprintByCombination: Record<stri
 }
 
 // Helper to build a mapping from combinationKey to Total Cost directly from results
-function getTotalCostByCombinationFromResults(results: QueryResult[]): Record<string, number> {
-  const result: Record<string, number> = {};
+function getTotalCostByCombinationFromResults(results: QueryResult[]): Map<string, number> {
+  const result = new Map<string, number>();
   results.forEach((r, idx) => {
     const combinationKey = r.combinationKey || String(idx);
     const data = r.result;
@@ -75,7 +75,7 @@ function getTotalCostByCombinationFromResults(results: QueryResult[]): Record<st
       if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].Plan) {
         const plan = parsed[0].Plan;
         if (typeof plan["Total Cost"] === "number") {
-          result[combinationKey] = plan["Total Cost"];
+          result.set(combinationKey, plan["Total Cost"]);
         }
       }
     }
@@ -83,8 +83,8 @@ function getTotalCostByCombinationFromResults(results: QueryResult[]): Record<st
   return result;
 }
 
-function getPlanRowsByCombinationFromResults(results: QueryResult[]): Record<string, number> {
-  const result: Record<string, number> = {};
+function getPlanRowsByCombinationFromResults(results: QueryResult[]): Map<string, number> {
+  const result = new Map<string, number>();
   results.forEach((r, idx) => {
     const combinationKey = r.combinationKey || String(idx);
     const data = r.result;
@@ -97,7 +97,7 @@ function getPlanRowsByCombinationFromResults(results: QueryResult[]): Record<str
       if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].Plan) {
         const plan = parsed[0].Plan;
         if (typeof plan["Plan Rows"] === "number") {
-          result[combinationKey] = plan["Plan Rows"];
+          result.set(combinationKey, plan["Plan Rows"]);
         }
       }
     }
@@ -105,9 +105,8 @@ function getPlanRowsByCombinationFromResults(results: QueryResult[]): Record<str
   return result;
 }
 
-// Helper to build a mapping from combinationKey to Actual Rows directly from results
-function getActualRowsByCombinationFromResults(results: QueryResult[]): Record<string, number> {
-  const result: Record<string, number> = {};
+function getActualRowsByCombinationFromResults(results: QueryResult[]): Map<string, number> {
+  const result = new Map<string, number>();
   results.forEach((r, idx) => {
     const combinationKey = r.combinationKey || String(idx);
     const data = r.result;
@@ -120,7 +119,7 @@ function getActualRowsByCombinationFromResults(results: QueryResult[]): Record<s
       if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].Plan) {
         const plan = parsed[0].Plan;
         if (typeof plan["Actual Rows"] === "number") {
-          result[combinationKey] = plan["Actual Rows"];
+          result.set(combinationKey, plan["Actual Rows"]);
         }
       }
     }
@@ -128,9 +127,8 @@ function getActualRowsByCombinationFromResults(results: QueryResult[]): Record<s
   return result;
 }
 
-// Helper to build a mapping from combinationKey to Actual Total Time directly from results
-function getActualTotalTimeByCombinationFromResults(results: QueryResult[]): Record<string, number> {
-  const result: Record<string, number> = {};
+function getActualTotalTimeByCombinationFromResults(results: QueryResult[]): Map<string, number> {
+  const result = new Map<string, number>();
   results.forEach((r, idx) => {
     const combinationKey = r.combinationKey || String(idx);
     const data = r.result;
@@ -143,7 +141,7 @@ function getActualTotalTimeByCombinationFromResults(results: QueryResult[]): Rec
       if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].Plan) {
         const plan = parsed[0].Plan;
         if (typeof plan["Actual Total Time"] === "number") {
-          result[combinationKey] = plan["Actual Total Time"];
+          result.set(combinationKey, plan["Actual Total Time"]);
         }
       }
     }
@@ -160,11 +158,11 @@ const Arrow: React.FC<{ open: boolean }> = React.memo(({ open }) => (
 
 Arrow.displayName = "Arrow";
 
-// Heatmap visualization
-const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, dim0Name: string, dim1Name: string }> = React.memo(
-  ({ planFingerprintByCombination, dim0Name, dim1Name }) => {
-    if (!planFingerprintByCombination || Object.keys(planFingerprintByCombination).length === 0) return null;
-    const keys = Object.keys(planFingerprintByCombination);
+// Plan heatmap visualization
+const PlanHeatmap: React.FC<{ dim0Name: string, dim1Name: string, planFingerprintByCombination: Map<string, number> }> = React.memo(
+  ({ dim0Name, dim1Name, planFingerprintByCombination }) => {
+    if (!planFingerprintByCombination || planFingerprintByCombination.size === 0) return null;
+    const keys = Array.from(planFingerprintByCombination.keys());
     const ySet = new Set<number>();
     const xSet = new Set<number>();
     keys.forEach(k => {
@@ -174,7 +172,6 @@ const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, 
     });
     const xArr = Array.from(xSet).sort((a, b) => a - b);
     const yArr = Array.from(ySet);
-    // Minimum height 350, add 30px per y-entry above 10
     const baseHeight = 350;
     const extraRows = Math.max(0, yArr.length - 10);
     const height = baseHeight + extraRows * 15;
@@ -185,19 +182,10 @@ const Heatmap: React.FC<{ planFingerprintByCombination: Record<string, number>, 
         <ReactApexChart options={options} series={series} type="heatmap" height={height} />
       </div>
     );
-  },
-  (prevProps, nextProps) => {
-    // Only re-render if the relevant props actually changed
-    return (
-      prevProps.dim0Name === nextProps.dim0Name &&
-      prevProps.dim1Name === nextProps.dim1Name &&
-      Object.keys(prevProps.planFingerprintByCombination).length === Object.keys(nextProps.planFingerprintByCombination).length &&
-      Object.entries(prevProps.planFingerprintByCombination).every(([k, v]) => nextProps.planFingerprintByCombination[k] === v)
-    );
   }
 );
 
-Heatmap.displayName = "Heatmap";
+PlanHeatmap.displayName = "PlanHeatmap";
 
 // Blue color palette (alternative to cividis)
 const bluePalette = [
@@ -222,8 +210,8 @@ function getBlueColorRanges(min: number, max: number) {
 const TotalCostHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
   ({ results, dim0Name, dim1Name }) => {
     const totalCostByCombination = getTotalCostByCombinationFromResults(results);
-    if (!totalCostByCombination || Object.keys(totalCostByCombination).length === 0) return null;
-    const keys = Object.keys(totalCostByCombination);
+    if (!totalCostByCombination || totalCostByCombination.size === 0) return null;
+    const keys = Array.from(totalCostByCombination.keys());
     const ySet = new Set<number>();
     const xSet = new Set<number>();
     keys.forEach(k => {
@@ -237,7 +225,7 @@ const TotalCostHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim
     const extraRows = Math.max(0, yArr.length - 10);
     const height = baseHeight + extraRows * 15;
     const series = getHeatmapFromPlanFingerprint(totalCostByCombination);
-    const allCosts = Object.values(totalCostByCombination);
+    const allCosts = Array.from(totalCostByCombination.values());
     const min = Math.min(...allCosts);
     const max = Math.max(...allCosts);
     const ranges = getBlueColorRanges(min, max);
@@ -267,8 +255,8 @@ TotalCostHeatmap.displayName = "TotalCostHeatmap";
 const ActualTotalTimeHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
   ({ results, dim0Name, dim1Name }) => {
     const actualTotalTimeByCombination = getActualTotalTimeByCombinationFromResults(results);
-    if (!actualTotalTimeByCombination || Object.keys(actualTotalTimeByCombination).length === 0) return null;
-    const keys = Object.keys(actualTotalTimeByCombination);
+    if (!actualTotalTimeByCombination || actualTotalTimeByCombination.size === 0) return null;
+    const keys = Array.from(actualTotalTimeByCombination.keys());
     const ySet = new Set<number>();
     const xSet = new Set<number>();
     keys.forEach(k => {
@@ -282,7 +270,7 @@ const ActualTotalTimeHeatmap: React.FC<{ results: QueryResult[], dim0Name: strin
     const extraRows = Math.max(0, yArr.length - 10);
     const height = baseHeight + extraRows * 15;
     const series = getHeatmapFromPlanFingerprint(actualTotalTimeByCombination);
-    const allTimes = Object.values(actualTotalTimeByCombination);
+    const allTimes = Array.from(actualTotalTimeByCombination.values());
     const min = Math.min(...allTimes);
     const max = Math.max(...allTimes);
     const ranges = getBlueColorRanges(min, max);
@@ -311,8 +299,8 @@ ActualTotalTimeHeatmap.displayName = "ActualTotalTimeHeatmap";
 const PlanRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
   ({ results, dim0Name, dim1Name }) => {
     const planRowsByCombination = getPlanRowsByCombinationFromResults(results);
-    if (!planRowsByCombination || Object.keys(planRowsByCombination).length === 0) return null;
-    const keys = Object.keys(planRowsByCombination);
+    if (!planRowsByCombination || planRowsByCombination.size === 0) return null;
+    const keys = Array.from(planRowsByCombination.keys());
     const ySet = new Set<number>();
     const xSet = new Set<number>();
     keys.forEach(k => {
@@ -326,7 +314,7 @@ const PlanRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1
     const extraRows = Math.max(0, yArr.length - 10);
     const height = baseHeight + extraRows * 15;
     const series = getHeatmapFromPlanFingerprint(planRowsByCombination);
-    const allRows = Object.values(planRowsByCombination);
+    const allRows = Array.from(planRowsByCombination.values());
     const min = Math.min(...allRows);
     const max = Math.max(...allRows);
     const ranges = getBlueColorRanges(min, max);
@@ -355,8 +343,8 @@ PlanRowsHeatmap.displayName = "PlanRowsHeatmap";
 const ActualRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
   ({ results, dim0Name, dim1Name }) => {
     const actualRowsByCombination = getActualRowsByCombinationFromResults(results);
-    if (!actualRowsByCombination || Object.keys(actualRowsByCombination).length === 0) return null;
-    const keys = Object.keys(actualRowsByCombination);
+    if (!actualRowsByCombination || actualRowsByCombination.size === 0) return null;
+    const keys = Array.from(actualRowsByCombination.keys());
     const ySet = new Set<number>();
     const xSet = new Set<number>();
     keys.forEach(k => {
@@ -370,7 +358,7 @@ const ActualRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, di
     const extraRows = Math.max(0, yArr.length - 10);
     const height = baseHeight + extraRows * 15;
     const series = getHeatmapFromPlanFingerprint(actualRowsByCombination);
-    const allRows = Object.values(actualRowsByCombination);
+    const allRows = Array.from(actualRowsByCombination.values());
     const min = Math.min(...allRows);
     const max = Math.max(...allRows);
     const ranges = getBlueColorRanges(min, max);
@@ -401,17 +389,17 @@ const DiffRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1
     // Get both actual and planned rows by combination
     const actualRowsByCombination = getActualRowsByCombinationFromResults(results);
     const planRowsByCombination = getPlanRowsByCombinationFromResults(results);
-    // Only show if both are available and non-empty
-    if (!actualRowsByCombination || !planRowsByCombination || Object.keys(actualRowsByCombination).length === 0 || Object.keys(planRowsByCombination).length === 0) return null;
-    // Calculate diff (Actual - Planned)
-    const diffByCombination: Record<string, number> = {};
-    Object.keys(actualRowsByCombination).forEach(key => {
-      if (typeof planRowsByCombination[key] === 'number') {
-        diffByCombination[key] = planRowsByCombination[key] - actualRowsByCombination[key];
+    if (!actualRowsByCombination || !planRowsByCombination || actualRowsByCombination.size === 0 || planRowsByCombination.size === 0) return null;
+    // Calculate diff (Planned - Actual)
+    const diffByCombination = new Map<string, number>();
+    for (const [key, actual] of actualRowsByCombination.entries()) {
+      const planned = planRowsByCombination.get(key);
+      if (typeof planned === 'number') {
+        diffByCombination.set(key, planned - actual);
       }
-    });
-    if (Object.keys(diffByCombination).length === 0) return null;
-    const keys = Object.keys(diffByCombination);
+    }
+    if (diffByCombination.size === 0) return null;
+    const keys = Array.from(diffByCombination.keys());
     const ySet = new Set<number>();
     const xSet = new Set<number>();
     keys.forEach(k => {
@@ -425,7 +413,7 @@ const DiffRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1
     const extraRows = Math.max(0, yArr.length - 10);
     const height = baseHeight + extraRows * 15;
     const series = getHeatmapFromPlanFingerprint(diffByCombination);
-    const allDiffs = Object.values(diffByCombination);
+    const allDiffs = Array.from(diffByCombination.values());
     const min = Math.min(...allDiffs);
     const max = Math.max(...allDiffs);
     const ranges = getBlueColorRanges(min, max);
@@ -458,7 +446,7 @@ const PlanCountInfo: React.FC = () => (
 );
 
 // Plan fingerprint map list
-const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number>, hasExecuted: boolean }> = ({ planUsageCount, hasExecuted }) => {
+const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> }> = ({ planUsageCount }) => {
   // Track open/closed state for each plan by ID
   const [openPlans, setOpenPlans] = useState<Record<number, boolean>>({});
   const togglePlan = (id: number) => {
@@ -473,12 +461,9 @@ const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number>,
             <div style={{display: 'flex', alignItems: 'center', cursor: 'pointer'}} onClick={() => togglePlan(id)}>
               <span style={{ display: 'inline-block', transition: 'transform 0.2s', transform: openPlans[id] ? 'rotate(90deg)' : 'rotate(0deg)', marginRight: 6 }}>▶</span>
               <strong>Plan {id}</strong>
-              {/* Only show usage count if hasExecuted is true */}
-              {hasExecuted && (
                 <span className={styles.planUsageCount}>
                   (Used {planUsageCount[id] || 0} times)
                 </span>
-              )}
             </div>
             <pre className={styles.planFingerprintMapPlan}>{fingerprint}</pre>
             {planJsonById.has(id) && openPlans[id] && (
@@ -562,31 +547,35 @@ const NoResultInfo: React.FC = () => (
 );
 
 // Main ResultList component
-export default function ResultList({ results = [], preparationResults = [], planFingerprintByCombination, dim0Name, dim1Name }: ResultListProps) {
-  const hasExecuted = results.length > 0 || preparationResults.length > 0;
+export default function ResultList({ results = [], preparationResults = [], dim0Name, dim1Name, isExecuting }: ResultListProps) {
+  // Remove hasExecuted, use !isExecuting for all logic
   const planUsageCount: Record<number, number> = {};
-  Object.values(planFingerprintByCombination).forEach(id => {
+  planFingerprintByCombination.forEach((id: number) => {
     planUsageCount[id] = (planUsageCount[id] || 0) + 1;
   });
-  const showNoResultInfo = !hasExecuted && planFingerprintMap.size === 0;
+  const showNoResultInfo = isExecuting || planFingerprintMap.size === 0;
 
   return (
     <div className={styles.resultBox}>
-      <Heatmap planFingerprintByCombination={planFingerprintByCombination} dim0Name={dim0Name} dim1Name={dim1Name} />
-      <TotalCostHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
-      <ActualTotalTimeHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
-      <PlanRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
-      <ActualRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
-      <DiffRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+      {!isExecuting && (
+        <>
+          <PlanHeatmap dim0Name={dim0Name} dim1Name={dim1Name} planFingerprintByCombination={planFingerprintByCombination} />
+          <TotalCostHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+          <ActualTotalTimeHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+          <PlanRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+          <ActualRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+          <DiffRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+        </>
+      )}
       <PlanCountInfo />
-      <PlanFingerprintMapList planUsageCount={planUsageCount} hasExecuted={hasExecuted} />
-      {hasExecuted ? (
+      <PlanFingerprintMapList planUsageCount={planUsageCount} />
+      {!showNoResultInfo ? (
         <>
           <PreparationSteps preparationResults={preparationResults} />
           <SqlQueries results={results} />
         </>
       ) : (
-        showNoResultInfo && <NoResultInfo />
+         <NoResultInfo />
       )}
     </div>
   );
