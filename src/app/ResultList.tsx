@@ -105,6 +105,52 @@ function getPlanRowsByCombinationFromResults(results: QueryResult[]): Record<str
   return result;
 }
 
+// Helper to build a mapping from combinationKey to Actual Rows directly from results
+function getActualRowsByCombinationFromResults(results: QueryResult[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  results.forEach((r, idx) => {
+    const combinationKey = r.combinationKey || String(idx);
+    const data = r.result;
+    if (!data || typeof data !== 'object' || !('rows' in data)) return;
+    const rows = (data as { rows: unknown[] }).rows;
+    const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+    const explainJsonStr = explainRow && Object.values(explainRow)[0];
+    if (explainJsonStr) {
+      const parsed = typeof explainJsonStr === 'string' ? JSON.parse(explainJsonStr) : explainJsonStr;
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].Plan) {
+        const plan = parsed[0].Plan;
+        if (typeof plan["Actual Rows"] === "number") {
+          result[combinationKey] = plan["Actual Rows"];
+        }
+      }
+    }
+  });
+  return result;
+}
+
+// Helper to build a mapping from combinationKey to Actual Total Time directly from results
+function getActualTotalTimeByCombinationFromResults(results: QueryResult[]): Record<string, number> {
+  const result: Record<string, number> = {};
+  results.forEach((r, idx) => {
+    const combinationKey = r.combinationKey || String(idx);
+    const data = r.result;
+    if (!data || typeof data !== 'object' || !('rows' in data)) return;
+    const rows = (data as { rows: unknown[] }).rows;
+    const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+    const explainJsonStr = explainRow && Object.values(explainRow)[0];
+    if (explainJsonStr) {
+      const parsed = typeof explainJsonStr === 'string' ? JSON.parse(explainJsonStr) : explainJsonStr;
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].Plan) {
+        const plan = parsed[0].Plan;
+        if (typeof plan["Actual Total Time"] === "number") {
+          result[combinationKey] = plan["Actual Total Time"];
+        }
+      }
+    }
+  });
+  return result;
+}
+
 // Arrow icon for collapsibles
 const Arrow: React.FC<{ open: boolean }> = React.memo(({ open }) => (
   <span style={{ display: 'inline-block', transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', marginRight: 6 }}>
@@ -216,6 +262,51 @@ const TotalCostHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim
 );
 TotalCostHeatmap.displayName = "TotalCostHeatmap";
 
+
+// Actual Total Time heatmap visualization
+const ActualTotalTimeHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
+  ({ results, dim0Name, dim1Name }) => {
+    const actualTotalTimeByCombination = getActualTotalTimeByCombinationFromResults(results);
+    if (!actualTotalTimeByCombination || Object.keys(actualTotalTimeByCombination).length === 0) return null;
+    const keys = Object.keys(actualTotalTimeByCombination);
+    const ySet = new Set<number>();
+    const xSet = new Set<number>();
+    keys.forEach(k => {
+      const [x, y] = k.split(",").map(Number);
+      xSet.add(x);
+      ySet.add(y);
+    });
+    const xArr = Array.from(xSet).sort((a, b) => a - b);
+    const yArr = Array.from(ySet);
+    const baseHeight = 350;
+    const extraRows = Math.max(0, yArr.length - 10);
+    const height = baseHeight + extraRows * 15;
+    const series = getHeatmapFromPlanFingerprint(actualTotalTimeByCombination);
+    const allTimes = Object.values(actualTotalTimeByCombination);
+    const min = Math.min(...allTimes);
+    const max = Math.max(...allTimes);
+    const ranges = getBlueColorRanges(min, max);
+    const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
+    const chartOptions = {
+      ...options,
+      title: { text: "Actual Total Time Heatmap" },
+      plotOptions: {
+        heatmap: {
+          colorScale: {
+            ranges
+          }
+        }
+      }
+    };
+    return (
+      <div style={{ margin: "24px 0" }}>
+        <ReactApexChart options={chartOptions} series={series} type="heatmap" height={height} />
+      </div>
+    );
+  }
+);
+ActualTotalTimeHeatmap.displayName = "ActualTotalTimeHeatmap";
+
 // Plan Rows heatmap visualization
 const PlanRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
   ({ results, dim0Name, dim1Name }) => {
@@ -259,6 +350,105 @@ const PlanRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1
   }
 );
 PlanRowsHeatmap.displayName = "PlanRowsHeatmap";
+
+// Actual Rows heatmap visualization
+const ActualRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
+  ({ results, dim0Name, dim1Name }) => {
+    const actualRowsByCombination = getActualRowsByCombinationFromResults(results);
+    if (!actualRowsByCombination || Object.keys(actualRowsByCombination).length === 0) return null;
+    const keys = Object.keys(actualRowsByCombination);
+    const ySet = new Set<number>();
+    const xSet = new Set<number>();
+    keys.forEach(k => {
+      const [x, y] = k.split(",").map(Number);
+      xSet.add(x);
+      ySet.add(y);
+    });
+    const xArr = Array.from(xSet).sort((a, b) => a - b);
+    const yArr = Array.from(ySet);
+    const baseHeight = 350;
+    const extraRows = Math.max(0, yArr.length - 10);
+    const height = baseHeight + extraRows * 15;
+    const series = getHeatmapFromPlanFingerprint(actualRowsByCombination);
+    const allRows = Object.values(actualRowsByCombination);
+    const min = Math.min(...allRows);
+    const max = Math.max(...allRows);
+    const ranges = getBlueColorRanges(min, max);
+    const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
+    const chartOptions = {
+      ...options,
+      title: { text: "Actual Rows Heatmap" },
+      plotOptions: {
+        heatmap: {
+          colorScale: {
+            ranges
+          }
+        }
+      }
+    };
+    return (
+      <div style={{ margin: "24px 0" }}>
+        <ReactApexChart options={chartOptions} series={series} type="heatmap" height={height} />
+      </div>
+    );
+  }
+);
+ActualRowsHeatmap.displayName = "ActualRowsHeatmap";
+
+// Diff (Actual Rows - Plan Rows) heatmap visualization
+const DiffRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
+  ({ results, dim0Name, dim1Name }) => {
+    // Get both actual and planned rows by combination
+    const actualRowsByCombination = getActualRowsByCombinationFromResults(results);
+    const planRowsByCombination = getPlanRowsByCombinationFromResults(results);
+    // Only show if both are available and non-empty
+    if (!actualRowsByCombination || !planRowsByCombination || Object.keys(actualRowsByCombination).length === 0 || Object.keys(planRowsByCombination).length === 0) return null;
+    // Calculate diff (Actual - Planned)
+    const diffByCombination: Record<string, number> = {};
+    Object.keys(actualRowsByCombination).forEach(key => {
+      if (typeof planRowsByCombination[key] === 'number') {
+        diffByCombination[key] = planRowsByCombination[key] - actualRowsByCombination[key];
+      }
+    });
+    if (Object.keys(diffByCombination).length === 0) return null;
+    const keys = Object.keys(diffByCombination);
+    const ySet = new Set<number>();
+    const xSet = new Set<number>();
+    keys.forEach(k => {
+      const [x, y] = k.split(",").map(Number);
+      xSet.add(x);
+      ySet.add(y);
+    });
+    const xArr = Array.from(xSet).sort((a, b) => a - b);
+    const yArr = Array.from(ySet);
+    const baseHeight = 350;
+    const extraRows = Math.max(0, yArr.length - 10);
+    const height = baseHeight + extraRows * 15;
+    const series = getHeatmapFromPlanFingerprint(diffByCombination);
+    const allDiffs = Object.values(diffByCombination);
+    const min = Math.min(...allDiffs);
+    const max = Math.max(...allDiffs);
+    const ranges = getBlueColorRanges(min, max);
+    const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
+    const chartOptions = {
+      ...options,
+      title: { text: "Actual - Planned Rows Diff Heatmap" },
+      plotOptions: {
+        heatmap: {
+          colorScale: {
+            ranges
+          }
+        }
+      }
+    };
+    return (
+      <div style={{ margin: "24px 0" }}>
+        <ReactApexChart options={chartOptions} series={series} type="heatmap" height={height} />
+      </div>
+    );
+  }
+);
+DiffRowsHeatmap.displayName = "DiffRowsHeatmap";
 
 // Number of plans info (always show live count from planFingerprintMap)
 const PlanCountInfo: React.FC = () => (
@@ -308,75 +498,95 @@ const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number>,
 
 PlanFingerprintMapList.displayName = "PlanFingerprintMapList";
 
-export default function ResultList({ results = [], preparationResults = [], planFingerprintByCombination, dim0Name, dim1Name }: ResultListProps) {
+// Collapsible section for preparation steps
+const PreparationSteps: React.FC<{ preparationResults: QueryResult[] }> = ({ preparationResults }) => {
   const [showPreparation, setShowPreparation] = useState(false);
-  const [showSql, setShowSql] = useState(false);
-  const hasExecuted = results.length > 0 || preparationResults.length > 0;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginTop: 24 }}>
+      <div style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowPreparation(v => !v)}>
+        <Arrow open={showPreparation} />
+        <strong className={styles.resultTitle}>Detailed Preparation Steps</strong>
+      </div>
+      {showPreparation && (
+        <div className={styles.resultContent}>
+          {preparationResults.length > 0 ? (
+            <ul className={styles.resultList}>
+              {preparationResults.map((prep, idx) => (
+                <li key={idx} className={styles.resultItem}>
+                  <pre className={styles.preparation}>{prep.query}
+{prep.error ? `Error: ${prep.error}` : `Result: ${JSON.stringify(prep.result, null, 2)}`}</pre>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className={styles.noPreparationResult}>No preparation steps</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
-  // Count how often each plan is used
+// Collapsible section for SQL queries
+const SqlQueries: React.FC<{ results: QueryResult[] }> = ({ results }) => {
+  const [showSql, setShowSql] = useState(false);
+  return (
+    <div style={{ userSelect: 'auto', display: 'flex', flexDirection: 'column', gap: 0, marginTop: 8 }}>
+      <div style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowSql(v => !v)}>
+        <Arrow open={showSql} />
+        <strong className={styles.resultTitle}>Detailed SQL Queries</strong>
+      </div>
+      {showSql && (
+        <div className={styles.resultContent}>
+          {results.length === 0 ? (
+            <span className={styles.noResult}>No result</span>
+          ) : (
+            <ul className={styles.resultList}>
+              {results.map((res, idx) => (
+                <li key={idx} className={styles.resultItem}>
+                  <pre className={styles.sql} style={{ userSelect: 'text' }}>{res.query}
+{res.error ? `\nError: ${res.error}` : `\nResult: ${JSON.stringify(res.result, null, 2)}`}</pre>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Info text if no results or fingerprints are present
+const NoResultInfo: React.FC = () => (
+  <div className={styles.noResult} style={{ textAlign: 'center' }}>Please execute a query</div>
+);
+
+// Main ResultList component
+export default function ResultList({ results = [], preparationResults = [], planFingerprintByCombination, dim0Name, dim1Name }: ResultListProps) {
+  const hasExecuted = results.length > 0 || preparationResults.length > 0;
   const planUsageCount: Record<number, number> = {};
   Object.values(planFingerprintByCombination).forEach(id => {
     planUsageCount[id] = (planUsageCount[id] || 0) + 1;
   });
-
-  // Show info text only if nothing was executed and no fingerprints present
   const showNoResultInfo = !hasExecuted && planFingerprintMap.size === 0;
 
   return (
     <div className={styles.resultBox}>
       <Heatmap planFingerprintByCombination={planFingerprintByCombination} dim0Name={dim0Name} dim1Name={dim1Name} />
       <TotalCostHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+      <ActualTotalTimeHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
       <PlanRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+      <ActualRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
+      <DiffRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
       <PlanCountInfo />
       <PlanFingerprintMapList planUsageCount={planUsageCount} hasExecuted={hasExecuted} />
-      {/* Show collapsibles only if something was executed, otherwise show info text */}
       {hasExecuted ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginTop: 24 }}>
-          <div style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowPreparation(v => !v)}>
-            <Arrow open={showPreparation} />
-            <strong className={styles.resultTitle}>Detailed Preparation Steps</strong>
-          </div>
-          {showPreparation && (
-            <div className={styles.resultContent}>
-              {preparationResults.length > 0 ? (
-                <ul className={styles.resultList}>
-                  {preparationResults.map((prep, idx) => (
-                    <li key={idx} className={styles.resultItem}>
-                      <pre className={styles.preparation}>{prep.query}
-{prep.error ? `Error: ${prep.error}` : `Result: ${JSON.stringify(prep.result, null, 2)}`}</pre>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <span className={styles.noPreparationResult}>No preparation steps</span>
-              )}
-            </div>
-          )}
-          <div style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', marginTop: 8 }} onClick={() => setShowSql(v => !v)}>
-            <Arrow open={showSql} />
-            <strong className={styles.resultTitle}>Detailed SQL Queries</strong>
-          </div>
-          {showSql && (
-            <div className={styles.resultContent}>
-              {results.length === 0 ? (
-                <span className={styles.noResult}>No result</span>
-              ) : (
-                <ul className={styles.resultList}>
-                  {results.map((res, idx) => (
-                    <li key={idx} className={styles.resultItem}>
-                      <pre className={styles.sql}>{res.query}
-{res.error ? `\nError: ${res.error}` : `\nResult: ${JSON.stringify(res.result, null, 2)}`}</pre>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
+        <>
+          <PreparationSteps preparationResults={preparationResults} />
+          <SqlQueries results={results} />
+        </>
       ) : (
-        showNoResultInfo && (
-          <div className={styles.noResult} style={{textAlign: 'center'}}>Please execute a query</div>
-        )
+        showNoResultInfo && <NoResultInfo />
       )}
     </div>
   );
