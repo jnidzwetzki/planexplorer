@@ -187,9 +187,23 @@ const PlanHeatmap: React.FC<{ dim0Name: string, dim1Name: string, planFingerprin
 
 PlanHeatmap.displayName = "PlanHeatmap";
 
-// Blue color palette (alternative to cividis)
 const bluePalette = [
-  '#f0fbff', '#d2f0ff', '#7fd3fb', '#4fa3e3', '#1565a6', '#2b3a4b', '#000000'
+  '#9400D3', // violet (dark)
+  '#C71585', // medium violet red (dark)
+  '#008000', // dark green
+  '#00A100', // green
+  '#1E90FF', // dodger blue
+  '#128FD9', // blue
+  '#00CFFF', // cyan
+  '#00FF00', // bright green
+  '#00FFFF', // aqua
+  '#FF00FF', // magenta
+  '#FF1493', // deep pink
+  '#FF4500', // orange red
+  '#FF6F00', // deep orange
+  '#FF0000', // red
+  '#FFB200', // yellow/orange
+  '#FFD700'  // gold (brightest)
 ];
 
 // Beispiel: So kann man die Palette in getCividisColorRanges nutzen
