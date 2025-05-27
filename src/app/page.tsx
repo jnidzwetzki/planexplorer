@@ -99,8 +99,24 @@ export default function Home() {
     setStep1(0.25);
     setStep0(1000); // Set default step for Dimension 0
     setSqlQuery("SET random_page_cost = %%DIMENSION1%%;\nSELECT * FROM data d1 LEFT JOIN data d2 ON (d1.key = d2.key) WHERE d1.key > %%DIMENSION0%%;");
-    setDescription0('WHERE key > X');
+    setDescription0('WHERE d1.key > X');
     setDescription1('random_page_cost');
+  };
+
+  // Handler to load demo query 4: two-dimensional join predicate
+  const handleLoadDemoQuery4 = () => {
+    handleClear();
+    setPreparationValue(DEFAULT_PREPARATION_STEPS);
+    setDim1Active(true);
+    setStart0(0);
+    setEnd0(50000);
+    setStep0(1000);
+    setStart1(0);
+    setEnd1(50000);
+    setStep1(1000);
+    setSqlQuery("SELECT * FROM data d1 LEFT JOIN data d2 ON (d1.key = d2.key) WHERE d1.key > %%DIMENSION0%% and d2.key > %%DIMENSION1%%;");
+    setDescription0('d1.key > X');
+    setDescription1('d2.key > Y');
   };
 
   const handleClear = () => {
@@ -211,6 +227,13 @@ export default function Home() {
             title="Load Demo Query 3"
           >
             Query 3
+          </button>
+          <button
+            onClick={handleLoadDemoQuery4}
+            className={styles.buttonDemo}
+            title="Load Demo Query 4"
+          >
+            Query 4
           </button>
         </div>
         <div className={styles.actionButtonGroup}>
