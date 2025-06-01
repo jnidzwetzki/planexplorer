@@ -114,7 +114,7 @@ export default function Home() {
     setStart1(0);
     setEnd1(50000);
     setStep1(1000);
-    setSqlQuery("SELECT * FROM data d1 LEFT JOIN data d2 ON (d1.key = d2.key) WHERE d1.key > %%DIMENSION0%% and d2.key > %%DIMENSION1%%;");
+    setSqlQuery("SELECT * FROM data d1 LEFT JOIN data d2 ON (d1.key = d2.key) WHERE d1.key > %%DIMENSION0%% AND d2.key > %%DIMENSION1%%;");
     setDescription0('d1.key > X');
     setDescription1('d2.key > Y');
   };
