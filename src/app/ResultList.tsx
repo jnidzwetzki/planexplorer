@@ -379,7 +379,7 @@ const ActualRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, di
     const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
     const chartOptions = {
       ...options,
-      title: { text: "Actual Rows Heatmap" },
+      title: { text: "Actual Tuples Heatmap" },
       plotOptions: {
         heatmap: {
           colorScale: {
@@ -395,7 +395,7 @@ const ActualRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, di
     );
   }
 );
-ActualRowsHeatmap.displayName = "ActualRowsHeatmap";
+ActualRowsHeatmap.displayName = "ActualTuplesHeatmap";
 
 // Diff (Actual Rows - Plan Rows) heatmap visualization
 const DiffRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1Name: string }> = React.memo(
@@ -434,7 +434,7 @@ const DiffRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1
     const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
     const chartOptions = {
       ...options,
-      title: { text: "Actual - Planned Rows Diff Heatmap" },
+      title: { text: "Actual - Planned Tuples Diff Heatmap" },
       plotOptions: {
         heatmap: {
           colorScale: {
@@ -450,7 +450,7 @@ const DiffRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1
     );
   }
 );
-DiffRowsHeatmap.displayName = "DiffRowsHeatmap";
+DiffRowsHeatmap.displayName = "DiffTuplesHeatmap";
 
 // Number of plans info (always show live count from planFingerprintMap)
 const PlanCountInfo: React.FC = () => (
