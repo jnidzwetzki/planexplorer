@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import IntervalSelector from "./IntervalSelector";
 import SqlQueryInput, { DEFAULT_PREPARATION_STEPS, DEFAULT_SQL_QUERY } from "./SqlQueryInput";
 import { handleExecuteLogic, clearPlanFingerprints, QueryResult } from "./handleExecuteLogic";
@@ -10,7 +10,13 @@ import styles from './page.module.css';
 
 export default function Home() {
   // Always use pglite as default backend, even in dev:full mode
-  const isDevFull = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_DEVFULL === '1';
+  const [showDatabaseSelector, setShowDatabaseSelector] = useState(false);
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_DEVFULL === '1') {
+      setShowDatabaseSelector(true);
+    }
+  }, []);
+
   const [backend, setBackend] = useState<DatabaseBackend>("pglite");
   const [executeQueries, setExecuteQueries] = useState(false);
   const [dim1Active, setDim1Active] = useState(false);
@@ -148,7 +154,7 @@ export default function Home() {
   return (
     <div className={styles.container}>
       <h1 className={styles.heading}>Query Plan Explorer</h1>
-      {isDevFull && (
+      {showDatabaseSelector && (
         <DatabaseSelector
           value={backend}
           onChange={handleBackendChange}
