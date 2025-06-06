@@ -3,10 +3,10 @@
 import React, { useState } from "react";
 import IntervalSelector from "./IntervalSelector";
 import SqlQueryInput, { DEFAULT_PREPARATION_STEPS, DEFAULT_SQL_QUERY } from "./SqlQueryInput";
-import ResultList from "./ResultList";
-import styles from './page.module.css';
 import { handleExecuteLogic, clearPlanFingerprints, QueryResult } from "./handleExecuteLogic";
 import DatabaseSelector, { DatabaseBackend } from "./DatabaseSelector";
+import { ResultListWithDetails } from "./ResultList";
+import styles from './page.module.css';
 
 export default function Home() {
   // Always use pglite as default backend, even in dev:full mode
@@ -270,7 +270,7 @@ export default function Home() {
           </div>
         </div>
       )}
-      <ResultList
+      <ResultListWithDetails
         results={results}
         preparationResults={preparationResults}
         dim0Name={description0}

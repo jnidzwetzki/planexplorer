@@ -127,3 +127,39 @@
   font-weight: 400;
   font-size: 13px;
 }
+
+/* Preparation section container */
+.preparationBox {
+  background: #f8fafc;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+
+/* SQL section container */
+.sqlBox {
+  background: #f8fafc; /* Match preparationBox background */
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+
+/* Section title for both boxes */
+.sectionTitle {
+  font-size: 1.08em;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: 0.01em;
+}
+
+.detailsBox {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 24px 20px 20px 20px;
+  margin-top: 32px;
+  margin-bottom: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}

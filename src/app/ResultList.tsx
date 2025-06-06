@@ -15,7 +15,6 @@ interface QueryResult {
 
 interface ResultListProps {
   results?: QueryResult[];
-  preparationResults?: QueryResult[];
   dim0Name: string;
   dim1Name: string;
   isExecuting: boolean;
@@ -177,9 +176,19 @@ const PlanHeatmap: React.FC<{ dim0Name: string, dim1Name: string, planFingerprin
     const height = baseHeight + extraRows * 15;
     const series = getHeatmapFromPlanFingerprint(planFingerprintByCombination);
     const options = getHeatmapOptions(xArr, yArr, dim0Name, dim1Name);
+    const chartOptions = {
+      ...options,
+      tooltip: {
+        y: {
+          formatter: (value: number) => {
+            return `Query plan: ${value}`;
+          }
+        }
+      }
+    };
     return (
       <div style={{ margin: "24px 0" }}>
-        <ReactApexChart options={options} series={series} type="heatmap" height={height} />
+        <ReactApexChart options={chartOptions} series={series} type="heatmap" height={height} />
       </div>
     );
   }
@@ -474,7 +483,7 @@ const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> 
           <li key={id} className={styles.planFingerprintMapItem}>
             <div style={{display: 'flex', alignItems: 'center', cursor: 'pointer'}} onClick={() => togglePlan(id)}>
               <span style={{ display: 'inline-block', transition: 'transform 0.2s', transform: openPlans[id] ? 'rotate(90deg)' : 'rotate(0deg)', marginRight: 6 }}>▶</span>
-              <strong>Plan {id}</strong>
+              <strong>Query plan {id}</strong>
                 <span className={styles.planUsageCount}>
                   (Used {planUsageCount[id] || 0} times)
                 </span>
@@ -501,10 +510,10 @@ PlanFingerprintMapList.displayName = "PlanFingerprintMapList";
 const PreparationSteps: React.FC<{ preparationResults: QueryResult[] }> = ({ preparationResults }) => {
   const [showPreparation, setShowPreparation] = useState(false);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginTop: 24 }}>
-      <div style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowPreparation(v => !v)}>
+    <div className={styles.preparationBox}>
+      <div className={styles.sectionTitle} style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowPreparation(v => !v)}>
         <Arrow open={showPreparation} />
-        <strong className={styles.resultTitle}>Detailed Preparation Steps</strong>
+        <span style={{marginLeft: 6}}>Detailed Preparation Steps</span>
       </div>
       {showPreparation && (
         <div className={styles.resultContent}>
@@ -530,10 +539,10 @@ const PreparationSteps: React.FC<{ preparationResults: QueryResult[] }> = ({ pre
 const SqlQueries: React.FC<{ results: QueryResult[] }> = ({ results }) => {
   const [showSql, setShowSql] = useState(false);
   return (
-    <div style={{ userSelect: 'auto', display: 'flex', flexDirection: 'column', gap: 0, marginTop: 8 }}>
-      <div style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowSql(v => !v)}>
+    <div className={styles.sqlBox}>
+      <div className={styles.sectionTitle} style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowSql(v => !v)}>
         <Arrow open={showSql} />
-        <strong className={styles.resultTitle}>Detailed SQL Queries</strong>
+        <span style={{marginLeft: 6}}>Detailed SQL Queries</span>
       </div>
       {showSql && (
         <div className={styles.resultContent}>
@@ -561,7 +570,7 @@ const NoResultInfo: React.FC = () => (
 );
 
 // Main ResultList component
-export default function ResultList({ results = [], preparationResults = [], dim0Name, dim1Name, isExecuting }: ResultListProps) {
+export default function ResultList({ results = [], dim0Name, dim1Name, isExecuting }: ResultListProps) {
   // Remove hasExecuted, use !isExecuting for all logic
   const planUsageCount: Record<number, number> = {};
   planFingerprintByCombination.forEach((id: number) => {
@@ -574,6 +583,8 @@ export default function ResultList({ results = [], preparationResults = [], dim0
       {!isExecuting && (
         <>
           <PlanHeatmap dim0Name={dim0Name} dim1Name={dim1Name} planFingerprintByCombination={planFingerprintByCombination} />
+          <PlanCountInfo />
+          <PlanFingerprintMapList planUsageCount={planUsageCount} />
           <TotalCostHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
           <ActualTotalTimeHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
           <PlanRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
@@ -581,16 +592,28 @@ export default function ResultList({ results = [], preparationResults = [], dim0
           <DiffRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
         </>
       )}
-      <PlanCountInfo />
-      <PlanFingerprintMapList planUsageCount={planUsageCount} />
-      {!showNoResultInfo ? (
-        <>
-          <PreparationSteps preparationResults={preparationResults} />
-          <SqlQueries results={results} />
-        </>
-      ) : (
-         <NoResultInfo />
-      )}
+      {showNoResultInfo && <NoResultInfo />}
     </div>
   );
 }
+
+// Place PreparationSteps and SqlQueries outside the gray resultBox
+interface ResultListWithDetailsProps extends ResultListProps {
+  preparationResults?: QueryResult[];
+}
+
+export const ResultListWithDetails: React.FC<ResultListWithDetailsProps> = (props) => {
+  const hasDetails = !props.isExecuting && ((props.results?.length ?? 0) > 0 || (props.preparationResults?.length ?? 0) > 0);
+  return (
+    <>
+      <ResultList {...props} />
+      {hasDetails && (
+        <div className={styles.detailsBox}>
+          <h3 className={styles.sectionTitle} style={{marginBottom: 18}}>Query Execution Details</h3>
+          <PreparationSteps preparationResults={props.preparationResults ?? []} />
+          <SqlQueries results={props.results ?? []} />
+        </div>
+      )}
+    </>
+  );
+};
