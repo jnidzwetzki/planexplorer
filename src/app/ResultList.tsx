@@ -506,53 +506,32 @@ const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> 
 
 PlanFingerprintMapList.displayName = "PlanFingerprintMapList";
 
-// Collapsible section for preparation steps
-const PreparationSteps: React.FC<{ preparationResults: QueryResult[] }> = ({ preparationResults }) => {
-  const [showPreparation, setShowPreparation] = useState(false);
-  return (
-    <div className={styles.preparationBox}>
-      <div className={styles.sectionTitle} style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowPreparation(v => !v)}>
-        <Arrow open={showPreparation} />
-        <span style={{marginLeft: 6}}>Detailed Preparation Steps</span>
-      </div>
-      {showPreparation && (
-        <div className={styles.resultContent}>
-          {preparationResults.length > 0 ? (
-            <ul className={styles.resultList}>
-              {preparationResults.map((prep, idx) => (
-                <li key={idx} className={styles.resultItem}>
-                  <pre className={styles.preparation}>{prep.query}
-{prep.error ? `\nError: ${prep.error}` : `\nResult: ${JSON.stringify(prep.result, null, 2)}`}</pre>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <span className={styles.noPreparationResult}>No preparation steps</span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
+// Generic collapsible query/result list
+interface CollapsibleQueryListProps {
+  title: string;
+  results: QueryResult[];
+  boxClassName?: string;
+  preClassName?: string;
+  emptyText?: string;
+}
 
-// Collapsible section for SQL queries
-const SqlQueries: React.FC<{ results: QueryResult[] }> = ({ results }) => {
-  const [showSql, setShowSql] = useState(false);
+const CollapsibleQueryList: React.FC<CollapsibleQueryListProps> = ({ title, results, boxClassName, preClassName, emptyText }) => {
+  const [open, setOpen] = useState(false);
   return (
-    <div className={styles.sqlBox}>
-      <div className={styles.sectionTitle} style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setShowSql(v => !v)}>
-        <Arrow open={showSql} />
-        <span style={{marginLeft: 6}}>Detailed SQL Queries</span>
+    <div className={boxClassName}>
+      <div className={styles.sectionTitle} style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center' }} onClick={() => setOpen(v => !v)}>
+        <Arrow open={open} />
+        <span style={{marginLeft: 6}}>{title}</span>
       </div>
-      {showSql && (
+      {open && (
         <div className={styles.resultContent}>
           {results.length === 0 ? (
-            <span className={styles.noResult}>No result</span>
+            <span className={styles.noResult}>{emptyText ?? 'No result'}</span>
           ) : (
             <ul className={styles.resultList}>
               {results.map((res, idx) => (
                 <li key={idx} className={styles.resultItem}>
-                  <pre className={styles.sql} style={{ userSelect: 'text' }}>{res.query}
+                  <pre className={preClassName} style={{ userSelect: 'text' }}>{res.query}
 {res.error ? `\nError: ${res.error}` : `\nResult: ${JSON.stringify(res.result, null, 2)}`}</pre>
                 </li>
               ))}
@@ -610,8 +589,20 @@ export const ResultListWithDetails: React.FC<ResultListWithDetailsProps> = (prop
       {hasDetails && (
         <div className={styles.detailsBox}>
           <h3 className={styles.sectionTitle} style={{marginBottom: 18}}>Query Execution Details</h3>
-          <PreparationSteps preparationResults={props.preparationResults ?? []} />
-          <SqlQueries results={props.results ?? []} />
+          <CollapsibleQueryList
+            title="Detailed Preparation Steps"
+            results={props.preparationResults ?? []}
+            boxClassName={styles.preparationBox}
+            preClassName={styles.preparation}
+            emptyText="No preparation steps"
+          />
+          <CollapsibleQueryList
+            title="Detailed SQL Queries"
+            results={props.results ?? []}
+            boxClassName={styles.sqlBox}
+            preClassName={styles.sql}
+            emptyText="No result"
+          />
         </div>
       )}
     </>
