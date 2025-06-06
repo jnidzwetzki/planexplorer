@@ -522,7 +522,7 @@ const PreparationSteps: React.FC<{ preparationResults: QueryResult[] }> = ({ pre
               {preparationResults.map((prep, idx) => (
                 <li key={idx} className={styles.resultItem}>
                   <pre className={styles.preparation}>{prep.query}
-{prep.error ? `Error: ${prep.error}` : `Result: ${JSON.stringify(prep.result, null, 2)}`}</pre>
+{prep.error ? `\nError: ${prep.error}` : `\nResult: ${JSON.stringify(prep.result, null, 2)}`}</pre>
                 </li>
               ))}
             </ul>
