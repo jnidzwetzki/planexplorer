@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import IntervalSelector from "./IntervalSelector";
 import SqlQueryInput, { DEFAULT_PREPARATION_STEPS, DEFAULT_SQL_QUERY } from "./SqlQueryInput";
 import { handleExecuteLogic, clearPlanFingerprints, QueryResult } from "./handleExecuteLogic";
 import DatabaseSelector, { DatabaseBackend } from "./DatabaseSelector";
 import { ResultListWithDetails } from "./ResultList";
 import styles from './page.module.css';
+import { useSearchParams } from "next/navigation";
 
-export default function Home() {
+function HomeContent() {
   // Always use pglite as default backend, even in dev:full mode
   const [showDatabaseSelector, setShowDatabaseSelector] = useState(false);
   useEffect(() => {
@@ -43,6 +44,31 @@ export default function Home() {
   const [description0, setDescription0] = useState(DEFAULT_DESCRIPTION_0);
   const [description1, setDescription1] = useState(DEFAULT_DESCRIPTION_1);
   const [proxyUrl, setProxyUrl] = useState<string>("http://localhost:4000");
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  // Restore state from ?share= param on mount
+  useEffect(() => {
+    const share = searchParams.get('share');
+    if (share) {
+      try {
+        const decoded = JSON.parse(Buffer.from(share, 'base64').toString());
+        if (typeof decoded === 'object' && decoded) {
+          if (typeof decoded.start0 === 'number') setStart0(decoded.start0);
+          if (typeof decoded.end0 === 'number') setEnd0(decoded.end0);
+          if (typeof decoded.step0 === 'number') setStep0(decoded.step0);
+          if (typeof decoded.start1 === 'number') setStart1(decoded.start1);
+          if (typeof decoded.end1 === 'number') setEnd1(decoded.end1);
+          if (typeof decoded.step1 === 'number') setStep1(decoded.step1);
+          if (typeof decoded.dim1Active === 'boolean') setDim1Active(decoded.dim1Active);
+          if (typeof decoded.preparationValue === 'string') setPreparationValue(decoded.preparationValue);
+          if (typeof decoded.sqlQuery === 'string') setSqlQuery(decoded.sqlQuery);
+          if (typeof decoded.description0 === 'string') setDescription0(decoded.description0);
+          if (typeof decoded.description1 === 'string') setDescription1(decoded.description1);
+        }
+      } catch {}
+    }
+  }, [searchParams]);
 
   async function handleExecute() {
     setIsExecuting(true);
@@ -151,6 +177,29 @@ export default function Home() {
     }
   }
 
+  function handleShare() {
+    // Build state object
+    const state = {
+      start0, end0, step0, start1, end1, step1, dim1Active,
+      preparationValue,
+      sqlQuery,
+      description0,
+      description1
+    };
+    // Encode as base64 JSON for compactness
+    const encoded = Buffer.from(JSON.stringify(state)).toString('base64');
+    // Build share URL
+    const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(encoded)}`;
+    // Copy to clipboard
+    navigator.clipboard.writeText(url).then(() => {
+      setShareStatus("Link copied!");
+      setTimeout(() => setShareStatus(null), 2000);
+    }, () => {
+      setShareStatus("Failed to copy");
+      setTimeout(() => setShareStatus(null), 2000);
+    });
+  }
+
   return (
     <div className={styles.container}>
       <h1 className={styles.heading}>Query Plan Explorer</h1>
@@ -248,6 +297,7 @@ export default function Home() {
               isExecuting ||
               !start0Valid || !end0Valid || (dim1Active && (!start1Valid || !end1Valid)) || sqlQuery.trim() === ""
             }
+            style={{ minWidth: 100 }}
           >
             {isExecuting ? (
               <span className={styles.spinner} aria-label="Loading" />
@@ -255,9 +305,23 @@ export default function Home() {
               "Execute"
             )}
           </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0 8px', position: 'relative' }}>
+            <button
+              onClick={handleShare}
+              className={styles.buttonPrimary}
+              type="button"
+              style={{ minWidth: 100 }}
+            >
+              <span style={{ width: '100%', textAlign: 'center' }}>Share</span>
+            </button>
+            {shareStatus && (
+              <span className={styles.shareNotification}>{shareStatus}</span>
+            )}
+          </div>
           <button
             onClick={handleClear}
             className={styles.buttonClear}
+            style={{ minWidth: 100 }}
           >
             Clear
           </button>
@@ -284,5 +348,13 @@ export default function Home() {
         isExecuting={isExecuting}
       />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
