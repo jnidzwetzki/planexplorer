@@ -1,0 +1,29 @@
+.footerSeparator {
+  border: none;
+  border-top: 1.5px solid #e0e0e0;
+  margin: 40px auto 0 auto;
+  width: 90%;
+}
+
+.footerLinks {
+  margin-top: 16px;
+  margin-bottom: 10px;
+  font-size: 15px;
+  color: #888;
+  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+
+.footerLinks a {
+  color: #2563eb;
+  text-decoration: none;
+  margin: 0 8px;
+}
+
+.footerLinks a:hover {
+  text-decoration: underline;
+}

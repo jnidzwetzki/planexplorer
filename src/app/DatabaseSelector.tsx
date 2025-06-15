@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import styles from "./DatabaseSelector.module.css";
 
-export type DatabaseBackend = "pglite" | "proxy";
+export type DatabaseBackend = "pglite" | "proxy" | "mysql";
 
 interface DatabaseSelectorProps {
   value: DatabaseBackend;
@@ -23,7 +23,11 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
-      const resp = await fetch(`${proxyUrl.replace(/\/$/, '')}/ping`, { signal: controller.signal });
+      // Always specify backend param for both variants
+      let backendParam = '';
+      if (value === 'mysql') backendParam = '?backend=mysql';
+      else if (value === 'proxy') backendParam = '?backend=proxy';
+      const resp = await fetch(`${proxyUrl.replace(/\/$/, '')}/ping${backendParam}`, { signal: controller.signal });
       clearTimeout(timeout);
       if (resp.ok) {
         const data: { ok: boolean; error?: string } = await resp.json();
@@ -76,10 +80,11 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
             onChange={e => onChange(e.target.value as DatabaseBackend)}
           >
             <option value="pglite">Built-in (PGLite, in-browser)</option>
-            <option value="proxy">Server Proxy (real PostgreSQL)</option>
+            <option value="proxy">Server Proxy (PostgreSQL, proxy backend)</option>
+            <option value="mysql">Server Proxy (MySQL, proxy backend)</option>
           </select>
         </div>
-        {value === "proxy" && onProxyUrlChange && (
+        {(value === "proxy" || value === "mysql") && onProxyUrlChange && (
           <>
             <input
               type="text"

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import styles from "./Footer.module.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +29,29 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        <footer style={{ textAlign: 'center', marginTop: 32, marginBottom: 16, fontSize: 15, color: '#888' }}>
-          <a href="https://jnidzwetzki.github.io/imprint/" target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none' }}>Imprint</a>
+        <hr className={styles.footerSeparator} />
+        <footer className={styles.footerLinks}>
+          <a href="https://jnidzwetzki.github.io/imprint/" target="_blank">
+            Imprint
+          </a>
+          <span> | </span>
+          <a
+            href="https://jnidzwetzki.github.io/2025/05/18/building-a-query-plan-explorer.html"
+            target="_blank"
+          >
+            Blog article 1
+          </a>
+          <span> | </span>
+          <a
+            href="https://jnidzwetzki.github.io/2025/06/03/art-of-query-optimization.html"
+            target="_blank"
+          >
+            Blog article 2
+          </a>
+          <span> | </span>
+          <a href="https://github.com/jnidzwetzki/planexplorer/" target="_blank">
+            GitHub Repository
+          </a>
         </footer>
       </body>
     </html>

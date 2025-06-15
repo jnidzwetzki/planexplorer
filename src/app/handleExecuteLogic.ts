@@ -13,7 +13,7 @@ export interface HandleExecuteParams {
   step1: number;
   sqlQuery: string;
   preparation: string;
-  backend: "pglite" | "proxy";
+  backend: "pglite" | "proxy" | "mysql";
   proxyUrl?: string;
   onProgress?: (current: number, total: number) => void; // Optional progress callback
   executeQueries: boolean; // Now required
@@ -234,7 +234,7 @@ function calculateTotalExecutions(dim1Active: boolean, start0: number, end0: num
 }
 
 // --- Proxy-specific helpers ---
-async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombination, proxyUrl, handleExplainResult, sqlResults, executeQueries }: {
+async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombination, proxyUrl, handleExplainResult, sqlResults, executeQueries, backend }: {
   sql: string,
   combinationKey: string,
   planFingerprintByCombination: Map<string, number>,
@@ -242,31 +242,47 @@ async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombinati
   handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) => void,
   sqlResults: QueryResult[],
   executeQueries: boolean, // Now required
+  backend?: string,
 }) {
   for (const stmt of getStatements(sql)) {
     let queryToRun = stmt;
     let isExplain = false;
     if (isSelectStatement(stmt)) {
-      queryToRun = executeQueries
-        ? `EXPLAIN (ANALYZE, FORMAT JSON) ${stmt}`
-        : `EXPLAIN (FORMAT JSON) ${stmt}`;
+      if (backend === 'mysql') {
+        queryToRun = `EXPLAIN FORMAT=JSON ${stmt}`;
+      } else {
+        queryToRun = executeQueries
+          ? `EXPLAIN (ANALYZE, FORMAT JSON) ${stmt}`
+          : `EXPLAIN (FORMAT JSON) ${stmt}`;
+      }
       isExplain = true;
     }
     try {
       const resp = await fetch(`${proxyUrl}/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql: queryToRun }),
+        body: JSON.stringify({ sql: queryToRun, backend }),
       });
       const data: { rows?: unknown[]; fields?: unknown[]; error?: string } = await resp.json();
       if (resp.ok) {
         if (isExplain) {
           try {
-            const rows = data.rows;
-            const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
-            const explainJsonStr = explainRow && Object.values(explainRow)[0];
-            if (explainJsonStr) {
-              handleExplainResult(explainJsonStr, combinationKey, planFingerprintByCombination);
+            if (backend === 'mysql') {
+              // MySQL: EXPLAIN FORMAT=JSON returns a single row with a 'EXPLAIN' field containing JSON
+              const rows = data.rows;
+              const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+              const explainJsonStr = explainRow && (explainRow as Record<string, unknown>)['EXPLAIN'];
+              if (explainJsonStr) {
+                handleExplainResult(explainJsonStr, combinationKey, planFingerprintByCombination);
+              }
+            } else {
+              // PostgreSQL: EXPLAIN (FORMAT JSON)
+              const rows = data.rows;
+              const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
+              const explainJsonStr = explainRow && Object.values(explainRow)[0];
+              if (explainJsonStr) {
+                handleExplainResult(explainJsonStr, combinationKey, planFingerprintByCombination);
+              }
             }
           } catch {}
         }
@@ -278,6 +294,118 @@ async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombinati
       sqlResults.push({ query: queryToRun, error: err instanceof Error ? err.message : String(err), combinationKey });
     }
   }
+}
+
+// --- MySQL plan parsing ---
+function handleExplainResultMySQL(parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) {
+  type MySQLTableNode = { table: { access_type?: string } };
+  type MySQLNestedLoopNode = { nested_loop: MySQLPlanNode[] };
+  type MySQLPlanNode = MySQLTableNode | MySQLNestedLoopNode | Record<string, unknown>;
+
+  let planObj: unknown = parsed;
+  if (typeof parsed === 'string') {
+    try {
+      planObj = JSON.parse(parsed);
+    } catch {
+      planObj = { query_block: {} };
+    }
+  }
+  // Recursively collect join type and access_type for each table in join order
+  function collectJoinAccessTypes(obj: MySQLPlanNode | undefined, acc: string[]): void {
+    if (!obj) return;
+    if ('nested_loop' in obj && Array.isArray((obj as MySQLNestedLoopNode).nested_loop)) {
+      acc.push('nested_loop');
+      (obj as MySQLNestedLoopNode).nested_loop.forEach(child => collectJoinAccessTypes(child, acc));
+    } else if ('table' in obj && typeof (obj as MySQLTableNode).table === 'object') {
+      const accessType = (obj as MySQLTableNode).table.access_type || '';
+      acc.push(`table:${accessType}`);
+    } else if (typeof obj === 'object' && obj !== null) {
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          collectJoinAccessTypes((obj as Record<string, unknown>)[key] as MySQLPlanNode, acc);
+        }
+      }
+    }
+  }
+  let queryBlock: MySQLPlanNode | undefined;
+  if (
+    planObj &&
+    typeof planObj === 'object' &&
+    'query_block' in planObj &&
+    (planObj as Record<string, unknown>).query_block &&
+    typeof (planObj as Record<string, unknown>).query_block === 'object'
+  ) {
+    queryBlock = (planObj as Record<string, unknown>).query_block as MySQLPlanNode;
+  } else if (planObj && typeof planObj === 'object') {
+    queryBlock = planObj as MySQLPlanNode;
+  } else {
+    queryBlock = undefined;
+  }
+  const acc: string[] = [];
+  collectJoinAccessTypes(queryBlock, acc);
+  const fingerprint = acc.join('>');
+  const id = getOrCreatePlanId(fingerprint, planObj);
+  assignPlanIdToCombination(combinationKey, id, planFingerprintByCombination);
+}
+
+export async function handleExecuteLogic(params: HandleExecuteParams): Promise<HandleExecuteResult> {
+  if (params.backend === "proxy" || params.backend === "mysql") {
+    return executeWithProxy(params);
+  } else {
+    return executeWithPGlite(params);
+  }
+}
+
+async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExecuteResult> {
+  const {
+    dim1Active, start0, end0, step0, start1, end1, step1, sqlQuery, preparation, proxyUrl = "http://localhost:4000", backend
+  } = params;
+  // Clear planFingerprintByCombination before use
+  planFingerprintByCombination.clear();
+  let firstError: string | undefined = undefined;
+  const { onProgress } = params;
+  // Preparation
+  let preparationResults: QueryResult[] = [];
+  if (preparation) {
+    const prep = await processPreparation(preparation, async (stmt) => {
+      const resp = await fetch(`${proxyUrl}/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql: stmt, backend }),
+      });
+      const data = await resp.json();
+      return { ok: resp.ok, data };
+    });
+    preparationResults = prep.results;
+    firstError = prep.firstError;
+  }
+  // Execution
+  const sqlResults: QueryResult[] = [];
+  const totalExecutions = calculateTotalExecutions(dim1Active, start0, end0, step0, start1, end1, step1);
+  await iterateExecutions({
+    dim1Active,
+    start0,
+    end0,
+    step0,
+    start1,
+    end1,
+    step1,
+    sqlQuery,
+    callback: async ({ sql, combinationKey }) => {
+      await proxyProcessSql({
+        sql,
+        combinationKey,
+        planFingerprintByCombination,
+        proxyUrl,
+        handleExplainResult: backend === 'mysql' ? handleExplainResultMySQL : handleExplainResult,
+        sqlResults,
+        executeQueries: params.executeQueries,
+        backend,
+      });
+    },
+    onProgress: onProgress ? (current) => onProgress(current, totalExecutions) : undefined,
+  });
+  return { preparationResults, sqlResults, error: firstError };
 }
 
 // --- PGlite-specific helpers ---
@@ -318,58 +446,6 @@ async function pgliteProcessSql({ db, sql, combinationKey, planFingerprintByComb
       sqlResults.push({ query: queryToRun, error: err instanceof Error ? err.message : String(err), combinationKey });
     }
   }
-}
-
-// --- Main functions ---
-async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExecuteResult> {
-  const {
-    dim1Active, start0, end0, step0, start1, end1, step1, sqlQuery, preparation, proxyUrl = "http://localhost:4000"
-  } = params;
-  // Clear planFingerprintByCombination before use
-  planFingerprintByCombination.clear();
-  let firstError: string | undefined = undefined;
-  const { onProgress } = params;
-  // Preparation
-  let preparationResults: QueryResult[] = [];
-  if (preparation) {
-    const prep = await processPreparation(preparation, async (stmt) => {
-      const resp = await fetch(`${proxyUrl}/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql: stmt }),
-      });
-      const data = await resp.json();
-      return { ok: resp.ok, data };
-    });
-    preparationResults = prep.results;
-    firstError = prep.firstError;
-  }
-  // Execution
-  const sqlResults: QueryResult[] = [];
-  const totalExecutions = calculateTotalExecutions(dim1Active, start0, end0, step0, start1, end1, step1);
-  await iterateExecutions({
-    dim1Active,
-    start0,
-    end0,
-    step0,
-    start1,
-    end1,
-    step1,
-    sqlQuery,
-    callback: async ({ sql, combinationKey }) => {
-      await proxyProcessSql({
-        sql,
-        combinationKey,
-        planFingerprintByCombination,
-        proxyUrl,
-        handleExplainResult,
-        sqlResults,
-        executeQueries: params.executeQueries,
-      });
-    },
-    onProgress: onProgress ? (current) => onProgress(current, totalExecutions) : undefined,
-  });
-  return { preparationResults, sqlResults, error: firstError };
 }
 
 async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExecuteResult> {
@@ -421,12 +497,4 @@ async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExe
     onProgress: onProgress ? (current) => onProgress(current, totalExecutions) : undefined,
   });
   return { preparationResults, sqlResults, error: firstError };
-}
-
-export async function handleExecuteLogic(params: HandleExecuteParams): Promise<HandleExecuteResult> {
-  if (params.backend === "proxy") {
-    return executeWithProxy(params);
-  } else {
-    return executeWithPGlite(params);
-  }
 }

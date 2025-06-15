@@ -33,6 +33,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
+    "mysql2": "^3.14.1",
     "nodemon": "^3.1.10",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
