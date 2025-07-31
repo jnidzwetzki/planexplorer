@@ -8,6 +8,8 @@
 
 .resultTitle {
   font-weight: 600;
+  color: #1f2937;
+  font-size: 18px;
 }
 
 .resultContent {
@@ -33,30 +35,41 @@
 }
 
 .sql {
-  font-family: monospace;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   font-size: 15px;
   white-space: pre-wrap;
+  color: #1f2937;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  line-height: 1.5;
 }
 
 .noResult {
-  color: #888;
+  color: #6b7280;
   display: block;
+  font-weight: 500;
 }
 
 .noPreparationResult {
-  color: #888;
+  color: #6b7280;
   display: block;
   margin-bottom: 32px;
+  font-weight: 500;
 }
 
 .preparation {
-  font-family: monospace;
-  background: none;
-  padding: 0;
-  border-radius: 0;
-  margin-bottom: 0;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 12px;
   white-space: pre-wrap;
   word-break: break-word;
+  color: #1f2937;
+  line-height: 1.5;
 }
 
 .preparation:empty {
@@ -78,16 +91,18 @@
 .collapseButton {
   margin: 0 0 8px 0;
   padding: 4px 12px;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  border: 1px solid #9ca3af;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.95em;
-  color: #222;
+  color: #1f2937;
+  font-weight: 500;
   transition: background 0.2s;
 }
 .collapseButton:hover {
   background: #e5e7eb;
+  border-color: #6b7280;
 }
 
 .planFingerprintMapBox {
@@ -112,19 +127,22 @@
   padding: 10px 12px;
 }
 .planFingerprintMapPlan {
-  font-family: monospace;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   font-size: 14px;
-  background: #f8f9fa;
+  background: #ffffff;
   border-radius: 4px;
-  padding: 6px 8px;
+  padding: 8px 10px;
   margin: 6px 0 0 0;
   white-space: pre-wrap;
+  color: #1f2937;
+  border: 1px solid #e2e8f0;
+  line-height: 1.4;
 }
 
 .planUsageCount {
   margin-left: 8px;
-  color: #888;
-  font-weight: 400;
+  color: #6b7280;
+  font-weight: 500;
   font-size: 13px;
 }
 

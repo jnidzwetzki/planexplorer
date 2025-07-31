@@ -6,6 +6,8 @@
   font-weight: 600;
   display: block;
   margin-bottom: 8px;
+  color: #1f2937;
+  font-size: 16px;
 }
 
 .sqlTextarea {
@@ -14,24 +16,29 @@
   border: 1.5px solid #d1d5db;
   padding: 12px;
   font-size: 16px;
-  font-family: monospace;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   resize: vertical;
   margin-bottom: 8px;
   box-sizing: border-box;
+  background: #ffffff;
+  color: #1f2937;
+  line-height: 1.5;
 }
 
 .sqlHint {
-  color: #555;
+  color: #4b5563;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .sqlPlaceholderBtn {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border: 1px solid #9ca3af;
   border-radius: 4px;
-  color: #222;
-  font-family: monospace;
+  color: #1f2937;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   font-size: 14px;
+  font-weight: 600;
   padding: 2px 8px;
   margin: 0 2px;
   cursor: pointer;
@@ -39,7 +46,7 @@
 }
 .sqlPlaceholderBtn:hover {
   background: #e5e7eb;
-  border-color: #a1a1aa;
+  border-color: #6b7280;
 }
 
 .experimentBox {
@@ -57,7 +64,7 @@
 .experimentBox legend {
   font-size: 1rem;
   font-weight: 600;
-  color: #2563eb;
+  color: #1e40af;
   margin-bottom: 0.2em;
   padding: 0 6px;
   line-height: 1.2;

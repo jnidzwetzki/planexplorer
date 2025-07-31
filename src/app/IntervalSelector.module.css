@@ -13,7 +13,7 @@
   flex-direction: column;
   min-width: 0;
   font-weight: 500;
-  color: #222;
+  color: #1f2937;
   margin-bottom: 0;
 }
 
@@ -29,9 +29,11 @@
   border: 1.2px solid #d1d5db;
   padding: 7px 10px;
   font-size: 15px;
-  font-family: monospace;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   margin-top: 0;
   transition: border 0.2s, background 0.2s;
+  background: #ffffff;
+  color: #1f2937;
 }
 
 .inputFieldInvalid {
@@ -44,8 +46,9 @@
 .intervalInfo {
   margin-top: 12px;
   flex: 1;
-  color: #555;
+  color: #4b5563;
   font-size: 15px;
+  font-weight: 500;
 }
 
 .intervalInfo span {
@@ -69,7 +72,7 @@
 .dimensionLegend {
   font-size: 1rem;
   font-weight: 600;
-  color: #2563eb;
+  color: #1e40af;
   margin-bottom: 0.2em;
   padding: 0 6px;
   line-height: 1.2;
