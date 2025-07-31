@@ -32,13 +32,12 @@
 }
 
 .sqlPlaceholderBtn {
-  background: #f9fafb;
-  border: 1px solid #9ca3af;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
   border-radius: 4px;
-  color: #1f2937;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  color: #222;
+  font-family: monospace;
   font-size: 14px;
-  font-weight: 600;
   padding: 2px 8px;
   margin: 0 2px;
   cursor: pointer;
