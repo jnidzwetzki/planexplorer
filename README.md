@@ -101,7 +101,7 @@ flowchart LR
    yarn dev
    ```
 4. **Open your browser:**
-   Visit [http://localhost:3000](http://localhost:3000) to use the app.
+   Visit [http://localhost:3000/planexplorer](http://localhost:3000/planexplorer) to use the app.
 
 ### Build for Production
 
