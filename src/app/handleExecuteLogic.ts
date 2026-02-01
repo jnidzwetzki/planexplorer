@@ -74,8 +74,20 @@ function walkNode(node: PlanNode, acc: string[]): void {
 
 export function getPlanFingerprint(parsed: unknown): string {
   const acc: string[] = [];
-  if (Array.isArray(parsed) && parsed.length > 0 && (parsed[0] as PlanNode).Plan) {
-    walkNode((parsed[0] as PlanNode).Plan as PlanNode, acc);
+  let obj: unknown = parsed;
+  if (typeof obj === 'string') {
+    try {
+      obj = JSON.parse(obj);
+    } catch {
+      // If parsing fails, return empty fingerprint (unknown format)
+      return '';
+    }
+  }
+  if (Array.isArray(obj) && obj.length > 0 && (obj[0] as PlanNode).Plan) {
+    walkNode((obj[0] as PlanNode).Plan as PlanNode, acc);
+  } else if (obj && typeof obj === 'object' && (obj as PlanNode).Plan) {
+    // Some EXPLAIN outputs may be a single object with a Plan
+    walkNode(((obj as PlanNode).Plan as PlanNode) || (obj as PlanNode), acc);
   }
   return acc.join('>');
 }
@@ -111,8 +123,17 @@ function assignPlanIdToCombination(combinationKey: string, id: number, planFinge
 }
 
 function handleExplainResult(parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) {
-  const fingerprint = getPlanFingerprint(parsed);
-  const id = getOrCreatePlanId(fingerprint, parsed);
+  // Ensure we operate on a parsed JSON object (EXPLAIN may be returned as a JSON string)
+  let parsedObj: unknown = parsed;
+  if (typeof parsedObj === 'string') {
+    try {
+      parsedObj = JSON.parse(parsedObj);
+    } catch {
+      // keep original string if parsing fails; getPlanFingerprint will handle it
+    }
+  }
+  const fingerprint = getPlanFingerprint(parsedObj);
+  const id = getOrCreatePlanId(fingerprint, parsedObj);
   assignPlanIdToCombination(combinationKey, id, planFingerprintByCombination);
 }
 
