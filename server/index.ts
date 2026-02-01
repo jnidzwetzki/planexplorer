@@ -2,15 +2,17 @@
 // Express server acting as a proxy to a real PostgreSQL instance
 // All comments in English
 
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
-const express = require('express');
-const cors = require('cors');
-const { Pool } = require('pg');
-const mysql = require('mysql2/promise');
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import { Pool } from 'pg';
+import mysql from 'mysql2/promise';
+import type { FieldPacket, RowDataPacket } from 'mysql2';
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = Number(process.env.PORT) || 4000;
 
 // Configure PostgreSQL connection from environment variables
 const pool = new Pool({
@@ -36,11 +38,13 @@ const mysqlPool = mysql.createPool({
 app.use(cors());
 app.use(express.json());
 
-/**
- * @param {import('express').Request} req
- * @param {import('express').Response} res
- */
-app.post('/query', async (req: any, res: any) => {
+type QueryRequestBody = {
+  sql: string;
+  params?: unknown[];
+  backend?: string;
+};
+
+app.post('/query', async (req: Request<Record<string, unknown>, unknown, QueryRequestBody>, res: Response) => {
   const { sql, params, backend } = req.body;
   if (!sql) {
     return res.status(400).json({ error: 'Missing SQL statement' });
@@ -50,21 +54,16 @@ app.post('/query', async (req: any, res: any) => {
       // MySQL backend
       const conn = await mysqlPool.getConnection();
       try {
-        // If the query is an EXPLAIN, parse the plan output
-        if (/^\s*EXPLAIN/i.test(sql)) {
-          const [rows, fields] = await conn.query(sql, params || []);
-          // MySQL EXPLAIN returns an array of objects
-          res.json({ rows, fields: Array.isArray(fields) ? fields.map((f: any) => ({ name: f.name })) : [] });
-        } else {
-          const [rows, fields] = await conn.query(sql, params || []);
-          res.json({ rows, fields: Array.isArray(fields) ? fields.map((f: any) => ({ name: f.name })) : [] });
-        }
+        const queryParams = Array.isArray(params) ? params : [];
+        const [rows, fields] = await conn.query<RowDataPacket[] | RowDataPacket[][]>(sql, queryParams) as [RowDataPacket[] | RowDataPacket[][], FieldPacket[] | undefined];
+        const safeFields = Array.isArray(fields) ? fields.map((f) => ({ name: f.name })) : [];
+        res.json({ rows, fields: safeFields });
       } finally {
         conn.release();
       }
     } else {
       // Default: PostgreSQL backend
-      const result = await pool.query(sql, params || []);
+      const result = await pool.query(sql, (Array.isArray(params) ? params : []));
       res.json({ rows: result.rows, fields: result.fields });
     }
   } catch (err) {
@@ -73,13 +72,16 @@ app.post('/query', async (req: any, res: any) => {
 });
 
 // Health check endpoint for proxy connection test
-app.get('/ping', async (req: any, res: any) => {
-  const backend = req.query.backend;
+app.get('/ping', async (req: Request, res: Response) => {
+  const backend = String(req.query.backend || '');
   try {
     if (backend === 'mysql') {
       const conn = await mysqlPool.getConnection();
-      await conn.query('SELECT 1');
-      conn.release();
+      try {
+        await conn.query('SELECT 1');
+      } finally {
+        conn.release();
+      }
       res.json({ ok: true });
     } else {
       await pool.query('SELECT 1');
@@ -92,10 +94,11 @@ app.get('/ping', async (req: any, res: any) => {
 
 app.listen(port, '127.0.0.1', () => {
   // Only use pool.options for log output
-  const host = pool.options?.host;
-  const pgPort = pool.options?.port;
-  const user = pool.options?.user;
-  const database = pool.options?.database;
+  const poolOptions = (pool as unknown as { options?: { host?: string; port?: number; user?: string; database?: string } }).options;
+  const host = poolOptions?.host;
+  const pgPort = poolOptions?.port;
+  const user = poolOptions?.user;
+  const database = poolOptions?.database;
   console.log('──────────────────────────────────────────────');
   console.log('🚀 Proxy Server is up and running!');
   console.log(`→ Listening on:   http://localhost:${port}`);
