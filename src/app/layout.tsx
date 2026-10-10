@@ -31,13 +31,14 @@ export default function RootLayout({
         {children}
         <hr className={styles.footerSeparator} />
         <footer className={styles.footerLinks}>
-          <a href="https://jnidzwetzki.github.io/imprint/" target="_blank">
+          <a href="https://jnidzwetzki.github.io/imprint/" target="_blank" rel="noopener noreferrer">
             Imprint
           </a>
           <span> | </span>
           <a
             href="https://jnidzwetzki.github.io/2025/05/18/building-a-query-plan-explorer.html"
             target="_blank"
+            rel="noopener noreferrer"
           >
             Blog article 1
           </a>
@@ -45,11 +46,12 @@ export default function RootLayout({
           <a
             href="https://jnidzwetzki.github.io/2025/06/03/art-of-query-optimization.html"
             target="_blank"
+            rel="noopener noreferrer"
           >
             Blog article 2
           </a>
           <span> | </span>
-          <a href="https://github.com/jnidzwetzki/planexplorer/" target="_blank">
+          <a href="https://github.com/jnidzwetzki/planexplorer/" target="_blank" rel="noopener noreferrer">
             GitHub Repository
           </a>
         </footer>

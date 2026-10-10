@@ -151,7 +151,6 @@ const bluePalette = [
   '#FFD700'  // gold (brightest)
 ];
 
-// Beispiel: So kann man die Palette in getCividisColorRanges nutzen
 function getBlueColorRanges(min: number, max: number) {
   return Array.from({ length: bluePalette.length }, (_, i) => {
     const from = min + (i / bluePalette.length) * (max - min);

@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   getStatements,
+  isSelectStatement,
   replaceDimensions,
   iterateExecutions,
   calculateTotalExecutions,
   getPlanFingerprint,
   getOrCreatePlanId,
   createPlanFingerprintState,
+  getProxyHeaders,
 } from './handleExecuteLogic';
 
 describe('getStatements', () => {
@@ -191,5 +193,49 @@ describe('getOrCreatePlanId / createPlanFingerprintState', () => {
     expect(state2.planFingerprintMap.size).toBe(0);
     const freshId = getOrCreatePlanId(state2, 'fingerprint-a', {});
     expect(freshId).toBe(1);
+  });
+});
+
+describe('isSelectStatement', () => {
+  it('recognizes a plain SELECT', () => {
+    expect(isSelectStatement('SELECT * FROM t')).toBe(true);
+  });
+
+  it('recognizes a lowercase select', () => {
+    expect(isSelectStatement('select * from t')).toBe(true);
+  });
+
+  it('recognizes a CTE (WITH ... SELECT ...)', () => {
+    expect(isSelectStatement('WITH cte AS (SELECT 1) SELECT * FROM cte')).toBe(true);
+  });
+
+  it('ignores leading/trailing whitespace', () => {
+    expect(isSelectStatement('   SELECT 1  ')).toBe(true);
+  });
+
+  it('does not match non-query statements', () => {
+    expect(isSelectStatement('INSERT INTO t VALUES (1)')).toBe(false);
+    expect(isSelectStatement('CREATE TABLE t (id int)')).toBe(false);
+  });
+});
+
+describe('getProxyHeaders', () => {
+  const ENV_KEY = 'NEXT_PUBLIC_PROXY_SHARED_SECRET';
+
+  afterEach(() => {
+    delete process.env[ENV_KEY];
+  });
+
+  it('omits the x-proxy-secret header when no secret is configured', () => {
+    delete process.env[ENV_KEY];
+    const headers = getProxyHeaders() as Record<string, string>;
+    expect(headers['Content-Type']).toBe('application/json');
+    expect(headers['x-proxy-secret']).toBeUndefined();
+  });
+
+  it('attaches the x-proxy-secret header when a secret is configured', () => {
+    process.env[ENV_KEY] = 'my-secret';
+    const headers = getProxyHeaders() as Record<string, string>;
+    expect(headers['x-proxy-secret']).toBe('my-secret');
   });
 });

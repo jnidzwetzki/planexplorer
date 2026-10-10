@@ -220,8 +220,11 @@ export function getStatements(sql: string): string[] {
   return statements.filter(Boolean);
 }
 
-function isSelectStatement(stmt: string): boolean {
-  return stmt.trim().toUpperCase().startsWith('SELECT');
+// Matches plain SELECTs and CTEs (WITH ... SELECT ...), which also produce a
+// result set and should be EXPLAIN-wrapped like a SELECT.
+export function isSelectStatement(stmt: string): boolean {
+  const upper = stmt.trim().toUpperCase();
+  return upper.startsWith('SELECT') || upper.startsWith('WITH');
 }
 
 const FLOAT_TOLERANCE = 1e-8; // Used to avoid floating point errors in loop conditions
