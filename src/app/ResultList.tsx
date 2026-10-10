@@ -413,12 +413,12 @@ const DiffRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1
     const actualRowsByCombination = getActualRowsByCombinationFromResults(results);
     const planRowsByCombination = getPlanRowsByCombinationFromResults(results);
     if (!actualRowsByCombination || !planRowsByCombination || actualRowsByCombination.size === 0 || planRowsByCombination.size === 0) return null;
-    // Calculate diff (Planned - Actual)
+    // Calculate diff (Actual - Planned); positive means the planner underestimated row counts
     const diffByCombination = new Map<string, number>();
     for (const [key, actual] of actualRowsByCombination.entries()) {
       const planned = planRowsByCombination.get(key);
       if (typeof planned === 'number') {
-        diffByCombination.set(key, planned - actual);
+        diffByCombination.set(key, actual - planned);
       }
     }
     if (diffByCombination.size === 0) return null;
