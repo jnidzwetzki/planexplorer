@@ -5,7 +5,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Pool } from 'pg';
 import mysql from 'mysql2/promise';
@@ -35,8 +35,28 @@ const mysqlPool = mysql.createPool({
   queueLimit: 0,
 });
 
-app.use(cors());
+// Restrict CORS to the Next.js app's origin instead of allowing any site to call
+// this proxy (it binds to 127.0.0.1 only, but that alone doesn't stop a webpage
+// open in the same browser from making a cross-origin request to it).
+app.use(cors({ origin: process.env.ALLOWED_ORIGIN || 'http://localhost:3000' }));
 app.use(express.json());
+
+// Optional shared-secret check: a lightweight guard against other browser tabs/sites
+// drive-by-hitting this local proxy. This is NOT real authentication - the frontend
+// is a browser app and has to embed the secret in a NEXT_PUBLIC_* variable, which is
+// inlined into the shipped JS bundle and visible to anyone who opens devtools on the
+// page itself. Its only purpose is to require that a caller actually knows about this
+// app, not to verify a human. Unset PROXY_SHARED_SECRET = check disabled (backward
+// compatible with existing .env setups). See README "Security notes" for details.
+const proxySharedSecret = process.env.PROXY_SHARED_SECRET;
+function requireSharedSecret(req: Request, res: Response, next: NextFunction) {
+  if (!proxySharedSecret) return next();
+  if (req.header('x-proxy-secret') !== proxySharedSecret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+app.use(requireSharedSecret);
 
 type QueryRequestBody = {
   sql: string;

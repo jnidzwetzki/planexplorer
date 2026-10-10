@@ -3,6 +3,19 @@ import { PGlite } from "@electric-sql/pglite";
 // This function generates the result SQL statements for the Query Plan Explorer.
 // It handles both single and two-dimensional intervals and prefixes SELECT statements with EXPLAIN (FORMAT JSON).
 
+// Builds the headers for a request to the local proxy server, attaching the shared
+// secret (if configured) so the proxy's optional PROXY_SHARED_SECRET check passes.
+// See server/index.ts and README "Security notes" for why this is CSRF/drive-by
+// protection rather than real authentication.
+export function getProxyHeaders(): HeadersInit {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  const proxySecret = process.env.NEXT_PUBLIC_PROXY_SHARED_SECRET;
+  if (proxySecret) {
+    headers["x-proxy-secret"] = proxySecret;
+  }
+  return headers;
+}
+
 export interface HandleExecuteParams {
   dim1Active: boolean;
   start0: number;
@@ -346,7 +359,7 @@ async function proxyProcessSql({ sql, combinationKey, state, proxyUrl, handleExp
     try {
       const resp = await fetch(`${proxyUrl}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getProxyHeaders(),
         body: JSON.stringify({ sql: queryToRun, backend }),
       });
       const data: { rows?: unknown[]; fields?: unknown[]; error?: string } = await resp.json();
@@ -464,7 +477,7 @@ async function executeWithProxy(params: HandleExecuteParams, state: PlanFingerpr
     const prep = await processPreparation(preparation, async (stmt) => {
       const resp = await fetch(`${proxyUrl}/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getProxyHeaders(),
         body: JSON.stringify({ sql: stmt, backend }),
       });
       const data = await resp.json();

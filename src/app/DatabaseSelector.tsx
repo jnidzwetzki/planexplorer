@@ -2,6 +2,7 @@
 // Reusable selector for choosing between built-in (PGLite) and server proxy
 import React, { useState } from "react";
 import styles from "./DatabaseSelector.module.css";
+import { getProxyHeaders } from "./handleExecuteLogic";
 
 export type DatabaseBackend = "pglite" | "proxy" | "mysql";
 
@@ -27,7 +28,10 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
       let backendParam = '';
       if (value === 'mysql') backendParam = '?backend=mysql';
       else if (value === 'proxy') backendParam = '?backend=proxy';
-      const resp = await fetch(`${proxyUrl.replace(/\/$/, '')}/ping${backendParam}`, { signal: controller.signal });
+      const resp = await fetch(`${proxyUrl.replace(/\/$/, '')}/ping${backendParam}`, {
+        signal: controller.signal,
+        headers: getProxyHeaders(),
+      });
       clearTimeout(timeout);
       if (resp.ok) {
         const data: { ok: boolean; error?: string } = await resp.json();

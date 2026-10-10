@@ -137,6 +137,14 @@ In addition to running fully in the browser, Plan Explorer supports connecting t
 
 When running in this mode, queries and plan analysis are executed against the configured PostgreSQL server instead of the in-browser database.
 
+### Security notes
+
+The proxy server is a local development convenience, not a hardened service — keep the following in mind when using `dev:full`:
+
+- **CORS is restricted** to `ALLOWED_ORIGIN` (default `http://localhost:3000`, matching the Next.js dev server), so other websites can't make cross-origin requests to the proxy from inside your browser.
+- **`PROXY_SHARED_SECRET` is optional, defense-in-depth, not real authentication.** The frontend has to embed it in a `NEXT_PUBLIC_*` variable, which gets inlined into the shipped JS bundle and is visible to anyone who opens devtools on the page itself. Setting it only raises the bar against an unrelated webpage or browser tab blindly sending requests to this local proxy — it does not verify who the human using the app is.
+- **The proxy executes arbitrary SQL by design**, including DDL/DML in preparation steps (e.g. `CREATE TABLE`, `INSERT`) — this is intentional and needed for the tool to work, so there is no statement-type allow-listing. Because of this, only point `dev:full` at a disposable, non-production database with credentials you're comfortable exposing to anything that can reach the proxy.
+
 ## Example
 
 To see the tool in action, visit the live demo: [https://jnidzwetzki.github.io/planexplorer/](https://jnidzwetzki.github.io/planexplorer/)
