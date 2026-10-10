@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import styles from "./ResultList.module.css";
 import dynamic from "next/dynamic";
-import { planFingerprintMap, planJsonById, planFingerprintByCombination } from "./handleExecuteLogic";
 
 // Dynamically import ReactApexChart to avoid SSR issues
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -18,6 +17,9 @@ interface ResultListProps {
   dim0Name: string;
   dim1Name: string;
   isExecuting: boolean;
+  planFingerprintMap: Map<string, number>;
+  planJsonById: Map<number, string>;
+  planFingerprintByCombination: Map<string, number>;
 }
 
 // Helper to generate ApexCharts heatmap options
@@ -462,14 +464,18 @@ const DiffRowsHeatmap: React.FC<{ results: QueryResult[], dim0Name: string, dim1
 DiffRowsHeatmap.displayName = "DiffTuplesHeatmap";
 
 // Number of plans info (always show live count from planFingerprintMap)
-const PlanCountInfo: React.FC = () => (
+const PlanCountInfo: React.FC<{ planFingerprintMap: Map<string, number> }> = ({ planFingerprintMap }) => (
   planFingerprintMap.size > 0 ? (
     <div className={styles.planCount}>Number of different plans: {planFingerprintMap.size}</div>
   ) : null
 );
 
 // Plan fingerprint map list
-const PlanFingerprintMapList: React.FC<{ planUsageCount: Record<number, number> }> = ({ planUsageCount }) => {
+const PlanFingerprintMapList: React.FC<{
+  planUsageCount: Record<number, number>,
+  planFingerprintMap: Map<string, number>,
+  planJsonById: Map<number, string>,
+}> = ({ planUsageCount, planFingerprintMap, planJsonById }) => {
   // Track open/closed state for each plan by ID
   const [openPlans, setOpenPlans] = useState<Record<number, boolean>>({});
   const togglePlan = (id: number) => {
@@ -549,7 +555,7 @@ const NoResultInfo: React.FC = () => (
 );
 
 // Main ResultList component
-export default function ResultList({ results = [], dim0Name, dim1Name, isExecuting }: ResultListProps) {
+export default function ResultList({ results = [], dim0Name, dim1Name, isExecuting, planFingerprintMap, planJsonById, planFingerprintByCombination }: ResultListProps) {
   // Remove hasExecuted, use !isExecuting for all logic
   const planUsageCount: Record<number, number> = {};
   planFingerprintByCombination.forEach((id: number) => {
@@ -562,8 +568,8 @@ export default function ResultList({ results = [], dim0Name, dim1Name, isExecuti
       {!isExecuting && (
         <>
           <PlanHeatmap dim0Name={dim0Name} dim1Name={dim1Name} planFingerprintByCombination={planFingerprintByCombination} />
-          <PlanCountInfo />
-          <PlanFingerprintMapList planUsageCount={planUsageCount} />
+          <PlanCountInfo planFingerprintMap={planFingerprintMap} />
+          <PlanFingerprintMapList planUsageCount={planUsageCount} planFingerprintMap={planFingerprintMap} planJsonById={planJsonById} />
           <TotalCostHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
           <ActualTotalTimeHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />
           <PlanRowsHeatmap results={results} dim0Name={dim0Name} dim1Name={dim1Name} />

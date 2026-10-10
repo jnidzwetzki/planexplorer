@@ -30,13 +30,31 @@ export interface HandleExecuteResult {
   preparationResults: QueryResult[];
   sqlResults: QueryResult[];
   error?: string; // First error encountered, if any
+  planFingerprintMap: Map<string, number>;
+  planJsonById: Map<number, string>; // Maps plan ID to full plan JSON string
+  planFingerprintByCombination: Map<string, number>;
 }
 
-// Store all unique plan fingerprints and assign them a sequential id
-export const planFingerprintMap: Map<string, number> = new Map();
-export const planJsonById: Map<number, string> = new Map(); // Maps plan ID to full plan JSON string
-export let planIdCounter = 1;
-export let planFingerprintByCombination: Map<string, number> = new Map();
+// Holds all unique plan fingerprints (and their sequential ids) seen during one
+// handleExecuteLogic() call. Created fresh per call (see createPlanFingerprintState)
+// and threaded explicitly through the call stack instead of living as module state,
+// so each run starts clean and the result can be handed back to the caller (React
+// state in page.tsx) rather than read from a shared global.
+export interface PlanFingerprintState {
+  planFingerprintMap: Map<string, number>;
+  planJsonById: Map<number, string>;
+  planFingerprintByCombination: Map<string, number>;
+  planIdCounter: { value: number };
+}
+
+export function createPlanFingerprintState(): PlanFingerprintState {
+  return {
+    planFingerprintMap: new Map(),
+    planJsonById: new Map(),
+    planFingerprintByCombination: new Map(),
+    planIdCounter: { value: 1 },
+  };
+}
 
 // Specify types instead of any for walkNode and getPlanFingerprint
 interface PlanNode {
@@ -92,33 +110,26 @@ export function getPlanFingerprint(parsed: unknown): string {
   return acc.join('>');
 }
 
-export function clearPlanFingerprints() {
-  planFingerprintMap.clear();
-  planJsonById.clear();
-  planIdCounter = 1;
-  planFingerprintByCombination = new Map();
-}
-
-function getOrCreatePlanId(fingerprint: string, parsed: unknown): number {
+export function getOrCreatePlanId(state: PlanFingerprintState, fingerprint: string, parsed: unknown): number {
   let id: number;
-  if (planFingerprintMap.has(fingerprint)) {
-    id = planFingerprintMap.get(fingerprint)!;
+  if (state.planFingerprintMap.has(fingerprint)) {
+    id = state.planFingerprintMap.get(fingerprint)!;
   } else {
-    id = planIdCounter++;
-    planFingerprintMap.set(fingerprint, id);
+    id = state.planIdCounter.value++;
+    state.planFingerprintMap.set(fingerprint, id);
     // Store the full plan JSON string for this new fingerprint
-    planJsonById.set(id, typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2));
+    state.planJsonById.set(id, typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2));
   }
   return id;
 }
 
-function assignPlanIdToCombination(combinationKey: string, id: number, planFingerprintByCombination: Map<string, number>) {
+function assignPlanIdToCombination(state: PlanFingerprintState, combinationKey: string, id: number) {
   if (combinationKey) {
-    planFingerprintByCombination.set(combinationKey, id);
+    state.planFingerprintByCombination.set(combinationKey, id);
   }
 }
 
-function handleExplainResult(parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) {
+function handleExplainResult(state: PlanFingerprintState, parsed: unknown, combinationKey: string) {
   // Ensure we operate on a parsed JSON object (EXPLAIN may be returned as a JSON string)
   let parsedObj: unknown = parsed;
   if (typeof parsedObj === 'string') {
@@ -129,8 +140,8 @@ function handleExplainResult(parsed: unknown, combinationKey: string, planFinger
     }
   }
   const fingerprint = getPlanFingerprint(parsedObj);
-  const id = getOrCreatePlanId(fingerprint, parsedObj);
-  assignPlanIdToCombination(combinationKey, id, planFingerprintByCombination);
+  const id = getOrCreatePlanId(state, fingerprint, parsedObj);
+  assignPlanIdToCombination(state, combinationKey, id);
 }
 
 // --- Shared helpers ---
@@ -309,12 +320,12 @@ function calculateTotalExecutions(dim1Active: boolean, start0: number, end0: num
 }
 
 // --- Proxy-specific helpers ---
-async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombination, proxyUrl, handleExplainResult, sqlResults, executeQueries, backend }: {
+async function proxyProcessSql({ sql, combinationKey, state, proxyUrl, handleExplainResult, sqlResults, executeQueries, backend }: {
   sql: string,
   combinationKey: string,
-  planFingerprintByCombination: Map<string, number>,
+  state: PlanFingerprintState,
   proxyUrl: string,
-  handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) => void,
+  handleExplainResult: (state: PlanFingerprintState, parsed: unknown, combinationKey: string) => void,
   sqlResults: QueryResult[],
   executeQueries: boolean, // Now required
   backend?: string,
@@ -348,7 +359,7 @@ async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombinati
               const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
               const explainJsonStr = explainRow && (explainRow as Record<string, unknown>)['EXPLAIN'];
               if (explainJsonStr) {
-                handleExplainResult(explainJsonStr, combinationKey, planFingerprintByCombination);
+                handleExplainResult(state, explainJsonStr, combinationKey);
               }
             } else {
               // PostgreSQL: EXPLAIN (FORMAT JSON)
@@ -356,7 +367,7 @@ async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombinati
               const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
               const explainJsonStr = explainRow && Object.values(explainRow)[0];
               if (explainJsonStr) {
-                handleExplainResult(explainJsonStr, combinationKey, planFingerprintByCombination);
+                handleExplainResult(state, explainJsonStr, combinationKey);
               }
             }
           } catch {}
@@ -372,7 +383,7 @@ async function proxyProcessSql({ sql, combinationKey, planFingerprintByCombinati
 }
 
 // --- MySQL plan parsing ---
-function handleExplainResultMySQL(parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) {
+function handleExplainResultMySQL(state: PlanFingerprintState, parsed: unknown, combinationKey: string) {
   type MySQLTableNode = { table: { access_type?: string } };
   type MySQLNestedLoopNode = { nested_loop: MySQLPlanNode[] };
   type MySQLPlanNode = MySQLTableNode | MySQLNestedLoopNode | Record<string, unknown>;
@@ -419,24 +430,32 @@ function handleExplainResultMySQL(parsed: unknown, combinationKey: string, planF
   const acc: string[] = [];
   collectJoinAccessTypes(queryBlock, acc);
   const fingerprint = acc.join('>');
-  const id = getOrCreatePlanId(fingerprint, planObj);
-  assignPlanIdToCombination(combinationKey, id, planFingerprintByCombination);
+  const id = getOrCreatePlanId(state, fingerprint, planObj);
+  assignPlanIdToCombination(state, combinationKey, id);
 }
+
+// What executeWithProxy/executeWithPGlite compute themselves; handleExecuteLogic
+// adds the plan-fingerprint state (from the fresh PlanFingerprintState it creates)
+// to produce the full HandleExecuteResult.
+type ExecutionOutcome = Omit<HandleExecuteResult, 'planFingerprintMap' | 'planJsonById' | 'planFingerprintByCombination'>;
 
 export async function handleExecuteLogic(params: HandleExecuteParams): Promise<HandleExecuteResult> {
-  if (params.backend === "proxy" || params.backend === "mysql") {
-    return executeWithProxy(params);
-  } else {
-    return executeWithPGlite(params);
-  }
+  const state = createPlanFingerprintState();
+  const outcome = params.backend === "proxy" || params.backend === "mysql"
+    ? await executeWithProxy(params, state)
+    : await executeWithPGlite(params, state);
+  return {
+    ...outcome,
+    planFingerprintMap: state.planFingerprintMap,
+    planJsonById: state.planJsonById,
+    planFingerprintByCombination: state.planFingerprintByCombination,
+  };
 }
 
-async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExecuteResult> {
+async function executeWithProxy(params: HandleExecuteParams, state: PlanFingerprintState): Promise<ExecutionOutcome> {
   const {
     dim1Active, start0, end0, step0, start1, end1, step1, sqlQuery, preparation, proxyUrl = "http://localhost:4000", backend
   } = params;
-  // Clear planFingerprintByCombination before use
-  planFingerprintByCombination.clear();
   let firstError: string | undefined = undefined;
   const { onProgress } = params;
   // Preparation
@@ -470,7 +489,7 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
       await proxyProcessSql({
         sql,
         combinationKey,
-        planFingerprintByCombination,
+        state,
         proxyUrl,
         handleExplainResult: backend === 'mysql' ? handleExplainResultMySQL : handleExplainResult,
         sqlResults,
@@ -484,12 +503,12 @@ async function executeWithProxy(params: HandleExecuteParams): Promise<HandleExec
 }
 
 // --- PGlite-specific helpers ---
-async function pgliteProcessSql({ db, sql, combinationKey, planFingerprintByCombination, handleExplainResult, sqlResults, executeQueries }: {
+async function pgliteProcessSql({ db, sql, combinationKey, state, handleExplainResult, sqlResults, executeQueries }: {
   db: PGlite,
   sql: string,
   combinationKey: string,
-  planFingerprintByCombination: Map<string, number>,
-  handleExplainResult: (parsed: unknown, combinationKey: string, planFingerprintByCombination: Map<string, number>) => void,
+  state: PlanFingerprintState,
+  handleExplainResult: (state: PlanFingerprintState, parsed: unknown, combinationKey: string) => void,
   sqlResults: QueryResult[],
   executeQueries: boolean, // Now required
 }) {
@@ -510,7 +529,7 @@ async function pgliteProcessSql({ db, sql, combinationKey, planFingerprintByComb
           const explainRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : undefined;
           const explainJsonStr = explainRow && Object.values(explainRow)[0] as string;
           if (explainJsonStr) {
-            handleExplainResult(explainJsonStr, combinationKey, planFingerprintByCombination);
+            handleExplainResult(state, explainJsonStr, combinationKey);
           }
         } catch {
           // Parse failures are expected/benign here: not every statement produces
@@ -524,12 +543,10 @@ async function pgliteProcessSql({ db, sql, combinationKey, planFingerprintByComb
   }
 }
 
-async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExecuteResult> {
+async function executeWithPGlite(params: HandleExecuteParams, state: PlanFingerprintState): Promise<ExecutionOutcome> {
   const {
     dim1Active, start0, end0, step0, start1, end1, step1, sqlQuery, preparation
   } = params;
-  // Clear planFingerprintByCombination before use
-  planFingerprintByCombination.clear();
   let firstError: string | undefined = undefined;
   const db = new PGlite();
   const { onProgress } = params;
@@ -564,7 +581,7 @@ async function executeWithPGlite(params: HandleExecuteParams): Promise<HandleExe
         db,
         sql,
         combinationKey,
-        planFingerprintByCombination,
+        state,
         handleExplainResult,
         sqlResults,
         executeQueries: params.executeQueries,

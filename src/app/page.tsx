@@ -3,7 +3,7 @@
 import React, { useState, Suspense } from "react";
 import IntervalSelector from "./IntervalSelector";
 import SqlQueryInput, { DEFAULT_PREPARATION_STEPS, DEFAULT_SQL_QUERY } from "./SqlQueryInput";
-import { handleExecuteLogic, clearPlanFingerprints, QueryResult } from "./handleExecuteLogic";
+import { handleExecuteLogic, QueryResult } from "./handleExecuteLogic";
 import DatabaseSelector, { DatabaseBackend } from "./DatabaseSelector";
 import { ResultListWithDetails } from "./ResultList";
 import styles from './page.module.css';
@@ -81,11 +81,13 @@ function HomeContent() {
   const [description1, setDescription1] = useState(() => asString(sharedState?.description1, DEFAULT_DESCRIPTION_1));
   const [proxyUrl, setProxyUrl] = useState<string>("http://localhost:4000");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [planFingerprintMap, setPlanFingerprintMap] = useState<Map<string, number>>(new Map());
+  const [planJsonById, setPlanJsonById] = useState<Map<number, string>>(new Map());
+  const [planFingerprintByCombination, setPlanFingerprintByCombination] = useState<Map<string, number>>(new Map());
 
   async function handleExecute() {
     setIsExecuting(true);
     setProgress(null); // Progress will be set by onProgress callback from handleExecuteLogic
-    clearPlanFingerprints(); // Clear fingerprints and counter before execution
     setError(undefined); // Clear previous error
     const res = await handleExecuteLogic({
       dim1Active,
@@ -105,6 +107,11 @@ function HomeContent() {
     setPreparationResults(res.preparationResults);
     setResults(res.sqlResults);
     setError(res.error); // Set error if present
+    // Replace wholesale with this run's plan-fingerprint state (matches the old
+    // "clear then fill" behavior: every run starts from a clean slate).
+    setPlanFingerprintMap(res.planFingerprintMap);
+    setPlanJsonById(res.planJsonById);
+    setPlanFingerprintByCombination(res.planFingerprintByCombination);
     setIsExecuting(false);
     setProgress(null);
   }
@@ -168,7 +175,9 @@ function HomeContent() {
     setPreparationResults([]);
     setPreparationValue("");
     setSqlQuery("");
-    clearPlanFingerprints(); // Clear fingerprints and counter on clear
+    setPlanFingerprintMap(new Map()); // Clear fingerprints on clear
+    setPlanJsonById(new Map());
+    setPlanFingerprintByCombination(new Map());
     setDim1Active(false); // Close Dimension 1 on clear
     setStart0(0); // Reset Dimension 0 start
     setEnd0(50000); // Reset Dimension 0 end
@@ -358,6 +367,9 @@ function HomeContent() {
         dim0Name={description0}
         dim1Name={description1}
         isExecuting={isExecuting}
+        planFingerprintMap={planFingerprintMap}
+        planJsonById={planJsonById}
+        planFingerprintByCombination={planFingerprintByCombination}
       />
     </div>
   );
