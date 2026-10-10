@@ -237,7 +237,7 @@ async function processPreparation(
 }
 
 // Helper to replace dimension placeholders in SQL
-function replaceDimensions(sql: string, dim0: string, dim1: string): string {
+export function replaceDimensions(sql: string, dim0: string, dim1: string): string {
   // Replaces %%DIMENSION0%% and %%DIMENSION1%% in the SQL string
   return sql
     .replaceAll('%%DIMENSION0%%', dim0)
@@ -254,7 +254,7 @@ interface ExecutionCallbackArgs {
 }
 
 // Shared helper to iterate over all executions (1D or 2D) and call a callback for each combination
-async function iterateExecutions({
+export async function iterateExecutions({
   dim1Active,
   start0,
   end0,
@@ -303,7 +303,7 @@ async function iterateExecutions({
 }
 
 // Helper to calculate total number of executions for progress bar
-function calculateTotalExecutions(dim1Active: boolean, start0: number, end0: number, step0: number, start1: number, end1: number, step1: number): number {
+export function calculateTotalExecutions(dim1Active: boolean, start0: number, end0: number, step0: number, start1: number, end1: number, step1: number): number {
   let total = 0;
   if (dim1Active) {
     for (let i = start0; i <= end0 + FLOAT_TOLERANCE; i += step0) {
