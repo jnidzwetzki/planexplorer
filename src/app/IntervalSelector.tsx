@@ -24,18 +24,26 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
   const [stepValid, setStepValid] = React.useState(true);
   const [descriptionInput, setDescriptionInput] = React.useState(description);
 
-  React.useEffect(() => {
+  const [prevStart, setPrevStart] = React.useState(start);
+  if (start !== prevStart) {
+    setPrevStart(start);
     setStartInput(start.toString());
-  }, [start]);
-  React.useEffect(() => {
+  }
+  const [prevEnd, setPrevEnd] = React.useState(end);
+  if (end !== prevEnd) {
+    setPrevEnd(end);
     setEndInput(end.toString());
-  }, [end]);
-  React.useEffect(() => {
+  }
+  const [prevStep, setPrevStep] = React.useState(step);
+  if (step !== prevStep) {
+    setPrevStep(step);
     setStepInput(step.toString());
-  }, [step]);
-  React.useEffect(() => {
+  }
+  const [prevDescription, setPrevDescription] = React.useState(description);
+  if (description !== prevDescription) {
+    setPrevDescription(description);
     setDescriptionInput(description);
-  }, [description]);
+  }
 
   const isValidNumber = (val: string) => {
     if (val === "" || val === "-") return false;

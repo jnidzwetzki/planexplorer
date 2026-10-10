@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, Suspense } from "react";
 import IntervalSelector from "./IntervalSelector";
 import SqlQueryInput, { DEFAULT_PREPARATION_STEPS, DEFAULT_SQL_QUERY } from "./SqlQueryInput";
 import { handleExecuteLogic, clearPlanFingerprints, QueryResult } from "./handleExecuteLogic";
@@ -9,66 +9,66 @@ import { ResultListWithDetails } from "./ResultList";
 import styles from './page.module.css';
 import { useSearchParams } from "next/navigation";
 
+interface SharedState {
+  start0?: number;
+  end0?: number;
+  step0?: number;
+  start1?: number;
+  end1?: number;
+  step1?: number;
+  dim1Active?: boolean;
+  preparationValue?: string;
+  sqlQuery?: string;
+  description0?: string;
+  description1?: string;
+}
+
+function decodeShareParam(searchParams: ReturnType<typeof useSearchParams>): SharedState | null {
+  const share = searchParams.get('share');
+  if (!share) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(share, 'base64').toString());
+    return typeof decoded === 'object' && decoded ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+const DEFAULT_DESCRIPTION_0 = "Dimension 0";
+const DEFAULT_DESCRIPTION_1 = "Dimension 1";
+
 function HomeContent() {
+  const searchParams = useSearchParams();
+  const sharedState = decodeShareParam(searchParams);
+
   // Always use pglite as default backend, even in dev:full mode
-  const [showDatabaseSelector, setShowDatabaseSelector] = useState(false);
-  useEffect(() => {
-    if (process.env.NEXT_PUBLIC_DEVFULL === '1') {
-      setShowDatabaseSelector(true);
-    }
-  }, []);
+  const [showDatabaseSelector] = useState(() => process.env.NEXT_PUBLIC_DEVFULL === '1');
 
   const [backend, setBackend] = useState<DatabaseBackend>("pglite");
   const [executeQueries, setExecuteQueries] = useState(false);
-  const [dim1Active, setDim1Active] = useState(false);
-  const [start0, setStart0] = useState(0);
-  const [end0, setEnd0] = useState(50000);
-  const [start1, setStart1] = useState(0);
-  const [end1, setEnd1] = useState(10);
+  const [dim1Active, setDim1Active] = useState(() => typeof sharedState?.dim1Active === 'boolean' ? sharedState.dim1Active : false);
+  const [start0, setStart0] = useState(() => typeof sharedState?.start0 === 'number' ? sharedState.start0 : 0);
+  const [end0, setEnd0] = useState(() => typeof sharedState?.end0 === 'number' ? sharedState.end0 : 50000);
+  const [start1, setStart1] = useState(() => typeof sharedState?.start1 === 'number' ? sharedState.start1 : 0);
+  const [end1, setEnd1] = useState(() => typeof sharedState?.end1 === 'number' ? sharedState.end1 : 10);
   const [results, setResults] = useState<QueryResult[]>([]);
   const [preparationResults, setPreparationResults] = useState<QueryResult[]>([]);
   const [start0Valid, setStart0Valid] = useState(true);
   const [end0Valid, setEnd0Valid] = useState(true);
   const [start1Valid, setStart1Valid] = useState(true);
   const [end1Valid, setEnd1Valid] = useState(true);
-  const [sqlQuery, setSqlQuery] = useState(""); // Start with empty SQL query
-  const [step0, setStep0] = useState(1000); // Default step for Dimension 0 set to 1000
-  const [step1, setStep1] = useState(1);
-  const [preparationValue, setPreparationValue] = useState(""); // Start with empty preparation steps
+  const [sqlQuery, setSqlQuery] = useState(() => typeof sharedState?.sqlQuery === 'string' ? sharedState.sqlQuery : ""); // Start with empty SQL query
+  const [step0, setStep0] = useState(() => typeof sharedState?.step0 === 'number' ? sharedState.step0 : 1000); // Default step for Dimension 0 set to 1000
+  const [step1, setStep1] = useState(() => typeof sharedState?.step1 === 'number' ? sharedState.step1 : 1);
+  const [preparationValue, setPreparationValue] = useState(() => typeof sharedState?.preparationValue === 'string' ? sharedState.preparationValue : ""); // Start with empty preparation steps
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   // Description fields for both dimensions
-  const DEFAULT_DESCRIPTION_0 = "Dimension 0";
-  const DEFAULT_DESCRIPTION_1 = "Dimension 1";
-  const [description0, setDescription0] = useState(DEFAULT_DESCRIPTION_0);
-  const [description1, setDescription1] = useState(DEFAULT_DESCRIPTION_1);
+  const [description0, setDescription0] = useState(() => typeof sharedState?.description0 === 'string' ? sharedState.description0 : DEFAULT_DESCRIPTION_0);
+  const [description1, setDescription1] = useState(() => typeof sharedState?.description1 === 'string' ? sharedState.description1 : DEFAULT_DESCRIPTION_1);
   const [proxyUrl, setProxyUrl] = useState<string>("http://localhost:4000");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
-  const searchParams = useSearchParams();
-
-  // Restore state from ?share= param on mount
-  useEffect(() => {
-    const share = searchParams.get('share');
-    if (share) {
-      try {
-        const decoded = JSON.parse(Buffer.from(share, 'base64').toString());
-        if (typeof decoded === 'object' && decoded) {
-          if (typeof decoded.start0 === 'number') setStart0(decoded.start0);
-          if (typeof decoded.end0 === 'number') setEnd0(decoded.end0);
-          if (typeof decoded.step0 === 'number') setStep0(decoded.step0);
-          if (typeof decoded.start1 === 'number') setStart1(decoded.start1);
-          if (typeof decoded.end1 === 'number') setEnd1(decoded.end1);
-          if (typeof decoded.step1 === 'number') setStep1(decoded.step1);
-          if (typeof decoded.dim1Active === 'boolean') setDim1Active(decoded.dim1Active);
-          if (typeof decoded.preparationValue === 'string') setPreparationValue(decoded.preparationValue);
-          if (typeof decoded.sqlQuery === 'string') setSqlQuery(decoded.sqlQuery);
-          if (typeof decoded.description0 === 'string') setDescription0(decoded.description0);
-          if (typeof decoded.description1 === 'string') setDescription1(decoded.description1);
-        }
-      } catch {}
-    }
-  }, [searchParams]);
 
   async function handleExecute() {
     setIsExecuting(true);
