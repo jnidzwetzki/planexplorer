@@ -2,6 +2,7 @@
   "name": "planexplorer",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "next dev --turbopack",
     "dev:full": "NEXT_PUBLIC_DEVFULL=1 concurrently \"next dev --turbopack\" \"nodemon --watch server --ext ts --exec ts-node server/index.ts\"",
