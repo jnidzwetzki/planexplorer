@@ -138,8 +138,66 @@ function handleExplainResult(parsed: unknown, combinationKey: string, planFinger
 }
 
 // --- Shared helpers ---
-function getStatements(sql: string): string[] {
-  return sql.split(';').map(s => s.trim()).filter(Boolean);
+// Splits SQL on top-level ';' only, skipping over ';' inside single/double-quoted
+// strings and '--'/'/* */' comments so it won't mis-split statements like
+// "SELECT 'a;b'" or "SELECT 1; -- note: a;b".
+// Note: PostgreSQL dollar-quoted strings ($$...$$ / $tag$...$tag$) are not handled —
+// a semicolon inside a dollar-quoted block would incorrectly split the statement.
+// This tool only ever runs simple EXPLAIN-wrapped SELECT/DDL/DML, never PL/pgSQL
+// function bodies, so this is an accepted limitation rather than a bug to fix here.
+export function getStatements(sql: string): string[] {
+  const statements: string[] = [];
+  let current = '';
+  let i = 0;
+  const n = sql.length;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  while (i < n) {
+    const ch = sql[i];
+    const next = sql[i + 1];
+
+    if (inLineComment) {
+      current += ch;
+      if (ch === '\n') inLineComment = false;
+      i++;
+      continue;
+    }
+    if (inBlockComment) {
+      current += ch;
+      if (ch === '*' && next === '/') { current += next; i += 2; inBlockComment = false; continue; }
+      i++;
+      continue;
+    }
+    if (inSingleQuote) {
+      current += ch;
+      if (ch === "'" && next === "'") { current += next; i += 2; continue; } // escaped '' inside string
+      if (ch === "'") inSingleQuote = false;
+      i++;
+      continue;
+    }
+    if (inDoubleQuote) {
+      current += ch;
+      if (ch === '"' && next === '"') { current += next; i += 2; continue; } // escaped "" inside identifier
+      if (ch === '"') inDoubleQuote = false;
+      i++;
+      continue;
+    }
+
+    // Not inside any quote/comment
+    if (ch === "'") { inSingleQuote = true; current += ch; i++; continue; }
+    if (ch === '"') { inDoubleQuote = true; current += ch; i++; continue; }
+    if (ch === '-' && next === '-') { inLineComment = true; current += ch; i++; continue; }
+    if (ch === '/' && next === '*') { inBlockComment = true; current += ch; i++; continue; }
+    if (ch === ';') { statements.push(current.trim()); current = ''; i++; continue; }
+
+    current += ch;
+    i++;
+  }
+  if (current.trim()) statements.push(current.trim());
+  return statements.filter(Boolean);
 }
 
 function isSelectStatement(stmt: string): boolean {
