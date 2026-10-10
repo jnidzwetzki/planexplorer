@@ -75,6 +75,7 @@ const DatabaseSelector: React.FC<DatabaseSelectorProps> = ({ value, onChange, pr
         <div className={styles.selectorRowInner}>
           <select
             id="db-backend-select"
+            aria-label="Database backend"
             className={styles.selectorSelect}
             value={value}
             onChange={e => onChange(e.target.value as DatabaseBackend)}

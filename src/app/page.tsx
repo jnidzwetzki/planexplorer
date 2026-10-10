@@ -23,6 +23,18 @@ interface SharedState {
   description1?: string;
 }
 
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === 'number' ? value : fallback;
+}
+
+function asString(value: unknown, fallback: string): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asBoolean(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
 function decodeShareParam(searchParams: ReturnType<typeof useSearchParams>): SharedState | null {
   const share = searchParams.get('share');
   if (!share) return null;
@@ -46,27 +58,27 @@ function HomeContent() {
 
   const [backend, setBackend] = useState<DatabaseBackend>("pglite");
   const [executeQueries, setExecuteQueries] = useState(false);
-  const [dim1Active, setDim1Active] = useState(() => typeof sharedState?.dim1Active === 'boolean' ? sharedState.dim1Active : false);
-  const [start0, setStart0] = useState(() => typeof sharedState?.start0 === 'number' ? sharedState.start0 : 0);
-  const [end0, setEnd0] = useState(() => typeof sharedState?.end0 === 'number' ? sharedState.end0 : 50000);
-  const [start1, setStart1] = useState(() => typeof sharedState?.start1 === 'number' ? sharedState.start1 : 0);
-  const [end1, setEnd1] = useState(() => typeof sharedState?.end1 === 'number' ? sharedState.end1 : 10);
+  const [dim1Active, setDim1Active] = useState(() => asBoolean(sharedState?.dim1Active, false));
+  const [start0, setStart0] = useState(() => asNumber(sharedState?.start0, 0));
+  const [end0, setEnd0] = useState(() => asNumber(sharedState?.end0, 50000));
+  const [start1, setStart1] = useState(() => asNumber(sharedState?.start1, 0));
+  const [end1, setEnd1] = useState(() => asNumber(sharedState?.end1, 10));
   const [results, setResults] = useState<QueryResult[]>([]);
   const [preparationResults, setPreparationResults] = useState<QueryResult[]>([]);
   const [start0Valid, setStart0Valid] = useState(true);
   const [end0Valid, setEnd0Valid] = useState(true);
   const [start1Valid, setStart1Valid] = useState(true);
   const [end1Valid, setEnd1Valid] = useState(true);
-  const [sqlQuery, setSqlQuery] = useState(() => typeof sharedState?.sqlQuery === 'string' ? sharedState.sqlQuery : ""); // Start with empty SQL query
-  const [step0, setStep0] = useState(() => typeof sharedState?.step0 === 'number' ? sharedState.step0 : 1000); // Default step for Dimension 0 set to 1000
-  const [step1, setStep1] = useState(() => typeof sharedState?.step1 === 'number' ? sharedState.step1 : 1);
-  const [preparationValue, setPreparationValue] = useState(() => typeof sharedState?.preparationValue === 'string' ? sharedState.preparationValue : ""); // Start with empty preparation steps
+  const [sqlQuery, setSqlQuery] = useState(() => asString(sharedState?.sqlQuery, "")); // Start with empty SQL query
+  const [step0, setStep0] = useState(() => asNumber(sharedState?.step0, 1000)); // Default step for Dimension 0 set to 1000
+  const [step1, setStep1] = useState(() => asNumber(sharedState?.step1, 1));
+  const [preparationValue, setPreparationValue] = useState(() => asString(sharedState?.preparationValue, "")); // Start with empty preparation steps
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   // Description fields for both dimensions
-  const [description0, setDescription0] = useState(() => typeof sharedState?.description0 === 'string' ? sharedState.description0 : DEFAULT_DESCRIPTION_0);
-  const [description1, setDescription1] = useState(() => typeof sharedState?.description1 === 'string' ? sharedState.description1 : DEFAULT_DESCRIPTION_1);
+  const [description0, setDescription0] = useState(() => asString(sharedState?.description0, DEFAULT_DESCRIPTION_0));
+  const [description1, setDescription1] = useState(() => asString(sharedState?.description1, DEFAULT_DESCRIPTION_1));
   const [proxyUrl, setProxyUrl] = useState<string>("http://localhost:4000");
   const [shareStatus, setShareStatus] = useState<string | null>(null);
 

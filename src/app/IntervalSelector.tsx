@@ -124,6 +124,7 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
             value={startInput}
             onChange={handleStartChange}
             className={startValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
+            aria-invalid={!startValid}
           />
         </label>
         <label className={styles.inputLabel}>
@@ -134,6 +135,7 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
             value={endInput}
             onChange={handleEndChange}
             className={endValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
+            aria-invalid={!endValid}
           />
         </label>
         <label className={styles.inputLabel}>
@@ -144,6 +146,7 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
             value={stepInput}
             onChange={handleStepChange}
             className={stepValid ? styles.inputField : `${styles.inputField} ${styles.inputFieldInvalid}`}
+            aria-invalid={!stepValid}
             min={1}
           />
         </label>

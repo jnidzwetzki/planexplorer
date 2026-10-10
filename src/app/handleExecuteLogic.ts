@@ -92,10 +92,6 @@ export function getPlanFingerprint(parsed: unknown): string {
   return acc.join('>');
 }
 
-export function resetPlanIdCounter() {
-  planIdCounter = 1;
-}
-
 export function clearPlanFingerprints() {
   planFingerprintMap.clear();
   planJsonById.clear();
@@ -516,8 +512,9 @@ async function pgliteProcessSql({ db, sql, combinationKey, planFingerprintByComb
           if (explainJsonStr) {
             handleExplainResult(explainJsonStr, combinationKey, planFingerprintByCombination);
           }
-        } catch (parseErr) {
-          window.console.log('Explain JSON parse error:', parseErr);
+        } catch {
+          // Parse failures are expected/benign here: not every statement produces
+          // EXPLAIN JSON output, so silently ignoring non-JSON results is intentional.
         }
       }
       sqlResults.push({ query: queryToRun, result, combinationKey });
