@@ -7,6 +7,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least-privilege default: GITHUB_TOKEN only needs read access for lint/test/
+# typecheck/build.
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
