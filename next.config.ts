@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   // Set basePath and assetPrefix for GitHub Pages if needed
   basePath: '/planexplorer',
   assetPrefix: '/planexplorer/',
+  agentRules: false,
 };
 
 export default nextConfig;
