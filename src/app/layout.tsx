@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   description: "A tool for exploring and analyzing SQL query plans.",
 };
 
+const buildTime = (process.env.NEXT_PUBLIC_BUILD_TIME ?? "").slice(0, 16).replace("T", " ");
+const commitSha = process.env.NEXT_PUBLIC_COMMIT_SHA ?? "";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -55,6 +58,21 @@ export default function RootLayout({
             GitHub Repository
           </a>
         </footer>
+        <div className={styles.buildInfo}>
+          Built {buildTime} UTC
+          {commitSha && (
+            <>
+              {" "}from commit{" "}
+              <a
+                href={`https://github.com/jnidzwetzki/planexplorer/commit/${commitSha}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {commitSha.slice(0, 7)}
+              </a>
+            </>
+          )}
+        </div>
       </body>
     </html>
   );

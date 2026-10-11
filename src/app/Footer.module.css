@@ -27,3 +27,19 @@
 .footerLinks a:hover {
   text-decoration: underline;
 }
+
+.buildInfo {
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+}
+
+.buildInfo a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.buildInfo a:hover {
+  text-decoration: underline;
+}
