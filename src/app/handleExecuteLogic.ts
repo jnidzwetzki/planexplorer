@@ -69,42 +69,68 @@ export function createPlanFingerprintState(): PlanFingerprintState {
   };
 }
 
-// Specify types instead of any for walkNode and getPlanFingerprint
+// A plan fingerprint is an indented tree of node labels, one line per node:
+//
+//   Hash Join
+//   -> Seq Scan on orders o
+//   -> Hash
+//      -> Index Scan using customers_pkey on customers c
+//
+// It captures everything that makes two plans "different" (node types, join
+// order/tree shape, relations, indexes, join/aggregate strategies) and ignores
+// everything that varies between executions of the same plan (costs, row
+// estimates, timings). The indentation keeps the tree shape unambiguous, which
+// a flat pre-order list of nodes would not be.
+
 interface PlanNode {
   [key: string]: unknown;
   'Node Type'?: string;
 }
 
-function walkNode(node: PlanNode, acc: string[]): void {
-  if (!node || typeof node !== 'object') return;
-  const nodeType = typeof node['Node Type'] === 'string' ? node['Node Type'] : undefined;
-  const alias = typeof node['Alias'] === 'string' ? node['Alias'] : undefined;
-  const relation = typeof node['Relation Name'] === 'string' ? node['Relation Name'] : undefined;
-  if (nodeType) {
-    let label = nodeType;
-    if (alias || relation) {
-      label += '(';
-      if (alias) {
-        label += alias;
-      } else if (relation) {
-        label += relation;
-      }
-      label += ')';
-    }
-    acc.push(label);
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stringField(node: Record<string, unknown>, key: string): string | undefined {
+  return typeof node[key] === 'string' ? (node[key] as string) : undefined;
+}
+
+function indentLine(depth: number, label: string): string {
+  return depth === 0 ? label : `${'   '.repeat(depth - 1)}-> ${label}`;
+}
+
+// Label for one PostgreSQL plan node, modeled on text EXPLAIN output
+// (e.g. "Index Scan Backward using t_a_idx on t x").
+function describePgNode(node: PlanNode): string {
+  const parts = [stringField(node, 'Node Type') ?? '?'];
+  const joinType = stringField(node, 'Join Type');
+  if (joinType && joinType !== 'Inner') parts.push(`(${joinType})`);
+  const strategy = stringField(node, 'Strategy'); // Aggregate/SetOp: Plain, Sorted, Hashed, Mixed
+  if (strategy && strategy !== 'Plain') parts.push(`(${strategy})`);
+  if (stringField(node, 'Scan Direction') === 'Backward') parts.push('Backward');
+  const indexName = stringField(node, 'Index Name');
+  if (indexName) parts.push(`using ${indexName}`);
+  const alias = stringField(node, 'Alias');
+  const target = stringField(node, 'Relation Name') ?? stringField(node, 'CTE Name') ?? stringField(node, 'Function Name');
+  if (target) {
+    parts.push(`on ${target}${alias && alias !== target ? ` ${alias}` : ''}`);
+  } else if (alias) {
+    parts.push(`on ${alias}`);
   }
-  for (const key in node) {
-    const value = node[key];
-    if (Array.isArray(value)) {
-      value.forEach((child) => walkNode(child as PlanNode, acc));
-    } else if (typeof value === 'object' && value !== null) {
-      walkNode(value as PlanNode, acc);
-    }
+  const relationship = stringField(node, 'Parent Relationship');
+  const prefix = relationship === 'InitPlan' || relationship === 'SubPlan' ? `${relationship}: ` : '';
+  return prefix + parts.join(' ');
+}
+
+function walkPgNode(node: PlanNode, depth: number, lines: string[]): void {
+  lines.push(indentLine(depth, describePgNode(node)));
+  const children = Array.isArray(node.Plans) ? node.Plans : [];
+  for (const child of children) {
+    if (isObject(child)) walkPgNode(child as PlanNode, depth + 1, lines);
   }
 }
 
 export function getPlanFingerprint(parsed: unknown): string {
-  const acc: string[] = [];
   let obj: unknown = parsed;
   if (typeof obj === 'string') {
     try {
@@ -114,13 +140,74 @@ export function getPlanFingerprint(parsed: unknown): string {
       return '';
     }
   }
-  if (Array.isArray(obj) && obj.length > 0 && (obj[0] as PlanNode).Plan) {
-    walkNode((obj[0] as PlanNode).Plan as PlanNode, acc);
-  } else if (obj && typeof obj === 'object' && (obj as PlanNode).Plan) {
-    // Some EXPLAIN outputs may be a single object with a Plan
-    walkNode(((obj as PlanNode).Plan as PlanNode) || (obj as PlanNode), acc);
+  // EXPLAIN (FORMAT JSON) returns [{ Plan: {...} }]; also accept a bare { Plan: {...} }
+  const root = Array.isArray(obj) ? obj[0] : obj;
+  if (!isObject(root) || !isObject(root.Plan)) return '';
+  const lines: string[] = [];
+  walkPgNode(root.Plan as PlanNode, 0, lines);
+  return lines.join('\n');
+}
+
+// MySQL EXPLAIN FORMAT=JSON keys that represent a plan operation and get their
+// own line in the fingerprint. Other nested objects/arrays (query_block,
+// query_specifications, attached_subqueries, ...) are walked transparently.
+const MYSQL_OPERATIONS = new Set([
+  'nested_loop',
+  'ordering_operation',
+  'grouping_operation',
+  'duplicates_removal',
+  'windowing',
+  'union_result',
+  'materialized_from_subquery',
+]);
+
+function describeMySQLNode(key: string, value: unknown): string {
+  const node = isObject(value) ? value : {};
+  const details: string[] = [];
+  if (key === 'table') {
+    const accessType = stringField(node, 'access_type');
+    const indexName = stringField(node, 'key');
+    if (accessType) details.push(indexName ? `${accessType} using ${indexName}` : accessType);
+    if (node.using_index === true) details.push('index only');
+    const label = `table ${stringField(node, 'table_name') ?? '?'}`;
+    return details.length ? `${label} [${details.join(', ')}]` : label;
   }
-  return acc.join('>');
+  if (node.using_temporary_table === true) details.push('temporary');
+  if (node.using_filesort === true) details.push('filesort');
+  return details.length ? `${key} [${details.join(', ')}]` : key;
+}
+
+function walkMySQLValue(value: unknown, depth: number, lines: string[]): void {
+  if (Array.isArray(value)) {
+    value.forEach((item) => walkMySQLValue(item, depth, lines));
+    return;
+  }
+  if (!isObject(value)) return;
+  for (const [key, child] of Object.entries(value)) {
+    if (typeof child !== 'object' || child === null) continue;
+    if (key === 'table' || MYSQL_OPERATIONS.has(key)) {
+      lines.push(indentLine(depth, describeMySQLNode(key, child)));
+      walkMySQLValue(child, depth + 1, lines);
+    } else {
+      walkMySQLValue(child, depth, lines);
+    }
+  }
+}
+
+// Fingerprint for MySQL EXPLAIN FORMAT=JSON output (same tree format as getPlanFingerprint).
+export function getMySQLPlanFingerprint(parsed: unknown): string {
+  let obj: unknown = parsed;
+  if (typeof obj === 'string') {
+    try {
+      obj = JSON.parse(obj);
+    } catch {
+      return '';
+    }
+  }
+  if (!isObject(obj)) return '';
+  const lines: string[] = [];
+  walkMySQLValue(isObject(obj.query_block) ? obj.query_block : obj, 0, lines);
+  return lines.join('\n');
 }
 
 export function getOrCreatePlanId(state: PlanFingerprintState, fingerprint: string, parsed: unknown): number {
@@ -400,52 +487,15 @@ async function proxyProcessSql({ sql, combinationKey, state, proxyUrl, handleExp
 
 // --- MySQL plan parsing ---
 function handleExplainResultMySQL(state: PlanFingerprintState, parsed: unknown, combinationKey: string) {
-  type MySQLTableNode = { table: { access_type?: string } };
-  type MySQLNestedLoopNode = { nested_loop: MySQLPlanNode[] };
-  type MySQLPlanNode = MySQLTableNode | MySQLNestedLoopNode | Record<string, unknown>;
-
   let planObj: unknown = parsed;
   if (typeof parsed === 'string') {
     try {
       planObj = JSON.parse(parsed);
     } catch {
-      planObj = { query_block: {} };
+      // keep original string; getMySQLPlanFingerprint returns '' for it
     }
   }
-  // Recursively collect join type and access_type for each table in join order
-  function collectJoinAccessTypes(obj: MySQLPlanNode | undefined, acc: string[]): void {
-    if (!obj) return;
-    if ('nested_loop' in obj && Array.isArray((obj as MySQLNestedLoopNode).nested_loop)) {
-      acc.push('nested_loop');
-      (obj as MySQLNestedLoopNode).nested_loop.forEach(child => collectJoinAccessTypes(child, acc));
-    } else if ('table' in obj && typeof (obj as MySQLTableNode).table === 'object') {
-      const accessType = (obj as MySQLTableNode).table.access_type || '';
-      acc.push(`table:${accessType}`);
-    } else if (typeof obj === 'object' && obj !== null) {
-      for (const key in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-          collectJoinAccessTypes((obj as Record<string, unknown>)[key] as MySQLPlanNode, acc);
-        }
-      }
-    }
-  }
-  let queryBlock: MySQLPlanNode | undefined;
-  if (
-    planObj &&
-    typeof planObj === 'object' &&
-    'query_block' in planObj &&
-    (planObj as Record<string, unknown>).query_block &&
-    typeof (planObj as Record<string, unknown>).query_block === 'object'
-  ) {
-    queryBlock = (planObj as Record<string, unknown>).query_block as MySQLPlanNode;
-  } else if (planObj && typeof planObj === 'object') {
-    queryBlock = planObj as MySQLPlanNode;
-  } else {
-    queryBlock = undefined;
-  }
-  const acc: string[] = [];
-  collectJoinAccessTypes(queryBlock, acc);
-  const fingerprint = acc.join('>');
+  const fingerprint = getMySQLPlanFingerprint(planObj);
   const id = getOrCreatePlanId(state, fingerprint, planObj);
   assignPlanIdToCombination(state, combinationKey, id);
 }
