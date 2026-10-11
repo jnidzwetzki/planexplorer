@@ -38,6 +38,7 @@
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
   font-size: 15px;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   color: #1f2937;
   background: #f8fafc;
   padding: 12px;
@@ -134,6 +135,7 @@
   padding: 8px 10px;
   margin: 6px 0 0 0;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   color: #1f2937;
   border: 1px solid #e2e8f0;
   line-height: 1.4;

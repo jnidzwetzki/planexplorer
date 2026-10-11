@@ -200,6 +200,48 @@
   gap: 8px;
 }
 
+.shareWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 8px;
+  position: relative;
+}
+
+@media (max-width: 640px) {
+  .container {
+    margin: 12px;
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+
+  .heading {
+    font-size: 22px;
+    margin-bottom: 20px;
+  }
+
+  .demoButtonGroup, .actionButtonGroup {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .shareWrapper {
+    flex: 1 1 0;
+    align-items: stretch;
+    margin: 0;
+  }
+
+  .buttonDemo, .buttonPrimary, .buttonClear {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    padding: 10px 4px;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+}
+
 .shareNotification {
   position: absolute;
   left: 50%;

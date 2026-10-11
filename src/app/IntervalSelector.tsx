@@ -150,7 +150,7 @@ export default function IntervalSelector({ label, start, end, setStart, setEnd, 
             min={1}
           />
         </label>
-        <label className={styles.inputLabel} style={{ marginLeft: 8 }}>
+        <label className={`${styles.inputLabel} ${styles.descriptionLabel}`}>
           <span>Description</span>
           <input
             type="text"

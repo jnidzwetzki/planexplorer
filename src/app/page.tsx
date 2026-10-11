@@ -318,7 +318,6 @@ function HomeContent() {
               isExecuting ||
               !start0Valid || !end0Valid || (dim1Active && (!start1Valid || !end1Valid)) || sqlQuery.trim() === ""
             }
-            style={{ minWidth: 100 }}
           >
             {isExecuting ? (
               <span className={styles.spinner} aria-label="Loading" />
@@ -326,12 +325,11 @@ function HomeContent() {
               "Execute"
             )}
           </button>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0 8px', position: 'relative' }}>
+          <div className={styles.shareWrapper}>
             <button
               onClick={handleShare}
               className={styles.buttonPrimary}
               type="button"
-              style={{ minWidth: 100 }}
             >
               <span style={{ width: '100%', textAlign: 'center' }}>Share</span>
             </button>
@@ -342,7 +340,6 @@ function HomeContent() {
           <button
             onClick={handleClear}
             className={styles.buttonClear}
-            style={{ minWidth: 100 }}
           >
             Clear
           </button>

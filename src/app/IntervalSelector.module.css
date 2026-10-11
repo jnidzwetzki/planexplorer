@@ -60,6 +60,7 @@
 }
 
 .dimensionGroup {
+  min-width: 0;
   border: 2px solid #d1d5db;
   border-radius: 10px;
   padding: 10px 12px 18px 12px; /* bottom padding erhöht */
@@ -67,6 +68,7 @@
   background: #f9fafb;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .dimensionLegend {
@@ -90,6 +92,25 @@
   line-height: 1;
   border-radius: 4px;
   transition: background 0.15s;
+}
+
+.descriptionLabel {
+  margin-left: 8px;
+}
+
+@media (max-width: 640px) {
+  .intervalRow {
+    flex-wrap: wrap;
+  }
+
+  .inputLabel {
+    flex: 1 1 calc(33% - 10px);
+  }
+
+  .descriptionLabel {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
 }
 
 .removeButton:hover, .removeButton:focus {
