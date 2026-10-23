@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "apexcharts": "^8.0.0",
+    "apexcharts": "^8.3.1",
     "concurrently": "^10.0.6",
     "cors": "^2.8.5",
     "dotenv": "^18.0.7",
