@@ -23,7 +23,7 @@
     "apexcharts": "^8.7.0",
     "concurrently": "^10.0.7",
     "cors": "^2.8.5",
-    "dotenv": "^18.0.7",
+    "dotenv": "^18.0.10",
     "express": "^5.1.0",
     "mysql2": "^3.24.6",
     "next": "^16.4.5",
