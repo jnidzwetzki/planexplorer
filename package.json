@@ -19,7 +19,7 @@
     "nanoid": "^3.3.18"
   },
   "dependencies": {
-    "@electric-sql/pglite": "^0.5.16",
+    "@electric-sql/pglite": "^0.6.0",
     "apexcharts": "^8.7.0",
     "concurrently": "^10.0.7",
     "cors": "^2.8.5",
